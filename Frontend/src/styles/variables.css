@@ -1,0 +1,38 @@
+:root {
+  --primary: #8b6fd4;
+  --primary-light: #b794f6;
+  --primary-dark: #5b3d99;
+  --accent: #e879f9;
+  --gold: #fbbf24;
+  --gold-dark: #d97706;
+  --success: #34d399;
+  --info: #60a5fa;
+  --danger: #f472b6;
+
+  --bg-dark: #0f0a1e;
+  --bg-mid: #1a1033;
+  --bg-light: #2d1f5e;
+  --bg-card: rgba(255, 255, 255, 0.1);
+  --bg-card-hover: rgba(255, 255, 255, 0.15);
+  --glass-border: rgba(255, 255, 255, 0.18);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+
+  --text: #ffffff;
+  --text-muted: rgba(255, 255, 255, 0.65);
+  --text-dim: rgba(255, 255, 255, 0.45);
+
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-xl: 32px;
+  --radius-full: 9999px;
+
+  --tab-height: 64px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --header-height: 56px;
+
+  --gradient-bg: linear-gradient(180deg, #0f0a1e 0%, #1a1033 30%, #2d1f5e 70%, #3d2a7a 100%);
+  --gradient-btn: linear-gradient(135deg, #9f7aea 0%, #7c5cbf 50%, #6b46c1 100%);
+  --gradient-gold: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+  --gradient-card: linear-gradient(135deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.06) 100%);
+}
