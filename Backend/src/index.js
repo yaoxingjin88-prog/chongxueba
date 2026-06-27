@@ -11,6 +11,11 @@ import achievementRoutes from './routes/achievements.js'
 import petRoutes from './routes/pet.js'
 import focusRoutes from './routes/focus.js'
 import studyRoomRoutes from './routes/studyRoom.js'
+import authRoutes from './routes/auth.js'
+import settingsRoutes from './routes/settings.js'
+import favoritesRoutes from './routes/favorites.js'
+import profileRoutes from './routes/profile.js'
+import leaderboardRoutes from './routes/leaderboard.js'
 
 dotenv.config()
 
@@ -29,6 +34,7 @@ app.get('/api/health', async (_req, res) => {
   }
 })
 
+app.use('/api/auth', authRoutes)
 app.use('/api/user', userRoutes)
 app.use('/api/tasks', taskRoutes)
 app.use('/api/mall', mallRoutes)
@@ -37,6 +43,10 @@ app.use('/api/achievements', achievementRoutes)
 app.use('/api/pet', petRoutes)
 app.use('/api/focus', focusRoutes)
 app.use('/api/study-room', studyRoomRoutes)
+app.use('/api/settings', settingsRoutes)
+app.use('/api/favorites', favoritesRoutes)
+app.use('/api/profile', profileRoutes)
+app.use('/api/leaderboard', leaderboardRoutes)
 
 app.use(notFound)
 app.use(errorHandler)

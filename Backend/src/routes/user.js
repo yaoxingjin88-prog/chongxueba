@@ -9,9 +9,12 @@ router.get('/:id?', async (req, res, next) => {
   try {
     const userId = Number(req.params.id) || DEFAULT_USER_ID
     const [rows] = await pool.query(
-      `SELECT u.*, p.name AS pet_name, p.level AS pet_level
+      `SELECT u.*, p.name AS pet_name, p.level AS pet_level,
+              up.avatar_seed, up.avatar_url,
+              (SELECT COALESCE(SUM(minutes), 0) FROM focus_records fr WHERE fr.user_id = u.id) AS focus_total_minutes
        FROM users u
        LEFT JOIN pets p ON p.user_id = u.id
+       LEFT JOIN user_profiles up ON up.user_id = u.id
        WHERE u.id = ?`,
       [userId],
     )
@@ -32,6 +35,7 @@ router.get('/:id?', async (req, res, next) => {
         streakDays: u.streak_days,
         focusToday: formatMinutes(u.focus_today_minutes),
         focusWeek: formatMinutes(u.focus_week_minutes),
+        focusTotalHours: Math.round(u.focus_total_minutes / 60),
         mood: u.mood,
         fullness: u.fullness,
         focus: u.focus_stat,
@@ -41,6 +45,8 @@ router.get('/:id?', async (req, res, next) => {
         totalMedals: u.total_medals,
         vip: Boolean(u.vip),
         ambientSound: u.ambient_sound || 'rain',
+        avatarSeed: u.avatar_seed || 'moon-night',
+        avatarUrl: u.avatar_url || '',
       },
     })
   } catch (err) {

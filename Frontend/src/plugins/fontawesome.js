@@ -13,7 +13,9 @@ import {
   faVolumeHigh, faCircleCheck, faCircleXmark, faChevronDown,
   faCamera, faPen, faRightFromBracket, faQuestionCircle,
   faHeadphones, faLeaf, faSun, faMoon, faCat, faDog, faShirt, faDrumstickBite, faClipboardList,
-  faBullseye, faGrip,
+  faBullseye, faGrip, faTrashCan, faBars, faPlus, faBookmark, faCopy, faLocationDot,
+  faMicrophone, faVideo, faXmark, faMicrophoneSlash, faHand, faUserPlus, faVolumeXmark,
+  faArrowsRotate, faVideoSlash, faTriangleExclamation, faLink, faQrcode, faComment,
 } from '@fortawesome/free-solid-svg-icons'
 
 library.add(
@@ -29,7 +31,9 @@ library.add(
   faVolumeHigh, faCircleCheck, faCircleXmark, faChevronDown,
   faCamera, faPen, faRightFromBracket, faQuestionCircle,
   faHeadphones, faLeaf, faSun, faMoon, faCat, faDog, faShirt, faDrumstickBite, faClipboardList,
-  faBullseye, faGrip,
+  faBullseye, faGrip, faTrashCan, faBars, faPlus, faBookmark, faCopy, faLocationDot,
+  faMicrophone, faVideo, faXmark, faMicrophoneSlash, faHand, faUserPlus, faVolumeXmark,
+  faArrowsRotate, faVideoSlash, faTriangleExclamation, faLink, faQrcode, faComment,
 )
 
 export { FontAwesomeIcon }

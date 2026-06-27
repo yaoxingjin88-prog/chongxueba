@@ -1,13 +1,23 @@
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { api } from '../api'
+import { avatarUrl } from '../utils/avatar'
 import { useAmbientSound } from '../composables/useAmbientSound'
+import AiMascotBot from '../components/AiMascotBot.vue'
+import StudyInteractSheet from '../components/StudyInteractSheet.vue'
+
+const router = useRouter()
 
 const sounds = ref([])
 const classmates = ref([])
 const onlineCount = ref(128)
 const atmosphere = ref(95)
 const selectedKey = ref('rain')
+const interactData = ref(null)
+const sheetOpen = ref(false)
+const joining = ref(false)
+const toast = ref('')
 
 const { playSound, stopAudio, currentKey, isPlaying, isLoading } = useAmbientSound()
 
@@ -15,16 +25,71 @@ const RING_R = 92
 const RING_C = 2 * Math.PI * RING_R
 const progress = 28
 
-function avatarUrl(seed) {
-  return `https://api.dicebear.com/7.x/adventurer/png?seed=${seed}&backgroundColor=b6e3f4,c0aede,d1d4f9`
-}
-
 function syncActiveState() {
   sounds.value = sounds.value.map((sound) => ({
     ...sound,
     active: sound.key === selectedKey.value,
     playing: sound.key === currentKey.value && isPlaying.value,
   }))
+}
+
+function showToast(msg) {
+  toast.value = msg
+  setTimeout(() => { toast.value = '' }, 2200)
+}
+
+async function loadInteract() {
+  try {
+    interactData.value = await api.getStudyInteract()
+  } catch {
+    interactData.value = {
+      title: '互动功能',
+      subtitle: '选择你想要的互动方式',
+      currentMode: 'none',
+      modes: [
+        { key: 'voice', title: '语音连麦', subtitle: '开麦交流 一起学习更专注', onlineCount: 12 },
+        { key: 'video', title: '视频自习', subtitle: '视频陪伴 见面学习更有动力', onlineCount: 8 },
+      ],
+      utilities: [
+        { key: 'rules', title: '房间规则', subtitle: '了解规则', icon: 'clipboard-list' },
+        { key: 'privacy', title: '权限说明', subtitle: '隐私与安全', icon: 'shield' },
+        { key: 'spectate', title: '仅围观', subtitle: '不进麦不出镜', icon: 'eye' },
+      ],
+    }
+  }
+}
+
+function openInteractSheet() {
+  sheetOpen.value = true
+  loadInteract()
+}
+
+async function onJoinMode(mode) {
+  joining.value = true
+  try {
+    const data = await api.joinStudyInteract(mode)
+    interactData.value = data
+    sheetOpen.value = false
+    if (mode === 'voice') {
+      router.push('/study-room/voice')
+      return
+    }
+    if (mode === 'video') {
+      router.push('/study-room/video')
+      return
+    }
+    showToast(data.message || '已进入')
+  } catch (err) {
+    showToast(err.message || '进入失败')
+  } finally {
+    joining.value = false
+  }
+}
+
+async function onUtility(key) {
+  if (key === 'spectate') {
+    await onJoinMode('spectate')
+  }
 }
 
 async function onSoundSelect(key) {
@@ -57,13 +122,14 @@ onMounted(async () => {
     atmosphere.value = data.atmosphere
   } catch {
     sounds.value = [
-      { key: 'rain', icon: 'cloud-rain', label: '雨声', url: '/sounds/rain.mp3', active: true },
-      { key: 'cafe', icon: 'mug-hot', label: '咖啡厅', url: '/sounds/cafe.mp3', active: false },
-      { key: 'forest', icon: 'tree', label: '森林', url: '/sounds/forest.mp3', active: false },
-      { key: 'fire', icon: 'fire', label: '篝火', url: '/sounds/fire.mp3', active: false },
+      { key: 'rain', icon: 'cloud-rain', label: '雨声', url: '/sounds/rain.wav', active: true },
+      { key: 'cafe', icon: 'mug-hot', label: '咖啡厅', url: '/sounds/cafe.wav', active: false },
+      { key: 'forest', icon: 'tree', label: '森林', url: '/sounds/forest.wav', active: false },
+      { key: 'fire', icon: 'fire', label: '篝火', url: '/sounds/fire.wav', active: false },
     ]
   }
   syncActiveState()
+  loadInteract()
 })
 </script>
 
@@ -94,10 +160,10 @@ onMounted(async () => {
         </div>
       </div>
       <div class="header-icons">
-        <button class="icon-btn" type="button" aria-label="搜索">
+        <button class="icon-btn" type="button" aria-label="搜索" @click="router.push('/study-room/search')">
           <font-awesome-icon icon="search" />
         </button>
-        <button class="icon-btn" type="button" aria-label="更多功能">
+        <button class="icon-btn" type="button" aria-label="更多功能" @click="router.push('/study-room/plaza')">
           <font-awesome-icon icon="grip" />
         </button>
       </div>
@@ -131,13 +197,13 @@ onMounted(async () => {
 
           <div
             v-for="(mate, index) in classmates"
-            :key="mate.name"
+            :key="mate.id"
             class="classmate"
             :style="{ left: `${mate.x}%`, top: `${mate.y}%` }"
           >
             <div class="classmate-float" :style="{ animationDelay: `${index * 0.4}s` }">
               <div class="classmate-avatar">
-                <img :src="avatarUrl(mate.seed)" :alt="mate.name" />
+                <img :src="avatarUrl(mate.seed, mate.avatarUrl)" :alt="mate.name">
               </div>
               <span class="classmate-name">{{ mate.name }}</span>
             </div>
@@ -153,10 +219,7 @@ onMounted(async () => {
             <p class="ai-hint">状态良好，继续保持哦！</p>
           </div>
           <div class="ai-mascot">
-            <img
-              src="https://api.dicebear.com/7.x/bottts/png?seed=study-cat&backgroundColor=e0e7ff"
-              alt="AI 助手"
-            />
+            <AiMascotBot />
           </div>
         </div>
 
@@ -176,8 +239,30 @@ onMounted(async () => {
             <span v-if="sound.playing" class="sound-wave" aria-hidden="true" />
           </button>
         </div>
+
+        <button type="button" class="interact-bar" @click="openInteractSheet">
+          <span class="interact-icon-btn" aria-hidden="true">
+            <font-awesome-icon icon="microphone" />
+          </span>
+          <span class="interact-label">连麦互动</span>
+          <span class="interact-icon-btn" aria-hidden="true">
+            <font-awesome-icon icon="video" />
+          </span>
+        </button>
       </section>
     </main>
+
+    <StudyInteractSheet
+      v-model="sheetOpen"
+      :data="interactData"
+      :joining="joining"
+      @join="onJoinMode"
+      @utility="onUtility"
+    />
+
+    <Transition name="fade">
+      <div v-if="toast" class="room-toast">{{ toast }}</div>
+    </Transition>
   </div>
 </template>
 
@@ -425,7 +510,7 @@ onMounted(async () => {
   position: relative;
   width: 100%;
   max-width: 350px;
-  height: clamp(340px, 50vh, 460px);
+  height: clamp(380px, 54vh, 500px);
   flex-shrink: 0;
 }
 
@@ -439,18 +524,21 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   animation: floatAvatar 4.5s ease-in-out infinite;
 }
 
 .classmate-avatar {
-  width: 48px;
-  height: 48px;
+  width: clamp(62px, 17vw, 74px);
+  height: clamp(62px, 17vw, 74px);
   overflow: hidden;
-  border: 2px solid rgba(255, 255, 255, .82);
+  border: 2.5px solid rgba(255, 255, 255, .9);
   border-radius: 50%;
   background: #fff;
-  box-shadow: 0 0 0 3px rgba(174, 168, 255, .32), 0 6px 16px rgba(26, 27, 92, .34);
+  box-shadow:
+    0 0 0 4px rgba(174, 168, 255, .38),
+    0 0 22px rgba(174, 168, 255, .28),
+    0 8px 22px rgba(26, 27, 92, .38);
 }
 
 .classmate-avatar img {
@@ -460,13 +548,13 @@ onMounted(async () => {
 }
 
 .classmate-name {
-  max-width: 60px;
+  max-width: 72px;
   overflow: hidden;
-  color: rgba(255, 255, 255, .92);
-  font-size: 11px;
+  color: rgba(255, 255, 255, .94);
+  font-size: 12px;
   font-weight: 500;
   text-overflow: ellipsis;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, .45);
+  text-shadow: 0 1px 5px rgba(0, 0, 0, .5);
   white-space: nowrap;
 }
 
@@ -588,20 +676,17 @@ onMounted(async () => {
 }
 
 .ai-mascot {
-  width: 78px;
-  height: 78px;
+  width: 84px;
+  height: 84px;
   flex-shrink: 0;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, .25);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, .18);
-  box-shadow: inset 0 0 20px rgba(167, 139, 250, .15), 0 6px 18px rgba(38, 43, 128, .18);
-}
-
-.ai-mascot img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  border: 1.5px solid rgba(255, 255, 255, .32);
+  border-radius: 22px;
+  background: linear-gradient(145deg, rgba(186, 214, 255, .45), rgba(130, 168, 255, .28));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .35),
+    inset 0 -8px 18px rgba(72, 108, 196, .12),
+    0 8px 22px rgba(26, 38, 110, .22);
 }
 
 .scene-row {
@@ -667,18 +752,88 @@ onMounted(async () => {
   transform: scale(.96);
 }
 
+.interact-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 14px;
+  margin-top: 2px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(255, 245, 200, 0.45);
+  background: linear-gradient(90deg, rgba(55, 48, 163, 0.72) 0%, rgba(79, 70, 229, 0.65) 50%, rgba(99, 102, 241, 0.68) 100%);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.12) inset,
+    0 0 22px rgba(167, 139, 250, 0.35),
+    0 8px 28px rgba(20, 31, 100, 0.28);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  color: #fff;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.interact-bar:active {
+  transform: scale(0.98);
+}
+
+.interact-icon-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
+.interact-label {
+  flex: 1;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.2);
+}
+
+.room-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--tab-height) + var(--safe-bottom) + 24px);
+  transform: translateX(-50%);
+  padding: 10px 22px;
+  background: rgba(30, 42, 120, 0.92);
+  color: #fff;
+  font-size: 13px;
+  border-radius: 999px;
+  z-index: 500;
+  white-space: nowrap;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
 @media (max-height: 760px) {
   .room-header {
     padding-top: calc(12px + env(safe-area-inset-top, 0px));
   }
 
   .focus-cluster {
-    height: 360px;
+    height: 380px;
   }
 
   .classmate-avatar {
-    width: 44px;
-    height: 44px;
+    width: 58px;
+    height: 58px;
   }
 
   .timer-ring-wrap {
@@ -697,8 +852,8 @@ onMounted(async () => {
   }
 
   .ai-mascot {
-    width: 68px;
-    height: 68px;
+    width: 72px;
+    height: 72px;
   }
 }
 

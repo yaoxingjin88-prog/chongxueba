@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
-    "init-db": "node scripts/init-db.js"
+    "init-db": "node scripts/init-db.js",
+    "seed-accounts": "node scripts/seed-test-accounts.js",
+    "sync-study-room": "node scripts/sync-study-room-users.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

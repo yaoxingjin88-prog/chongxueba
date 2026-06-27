@@ -1,10 +1,52 @@
 <script setup>
+import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
-import Live2DCharacter from '../components/Live2DCharacter.vue'
+import { avatarUrl } from '../utils/avatar'
+import homeFoxIsland from '../assets/home-fox-island.png'
 
 const router = useRouter()
 const user = useUserStore()
+const foxGreeting = ref('')
+let greetingTimer
+let welcomeTimer
+
+const clickGreetings = [
+  '今天也一起加油吧！',
+  '专注一下，能量满满！',
+  '摸摸头，学习不发愁～',
+]
+
+function buildWelcomeGreetings() {
+  const name = user.name || '同学'
+  const pet = user.petName || '小橙'
+  return [
+    `欢迎回来，${name}！`,
+    `${name}，今天也一起加油吧！`,
+    `欢迎回来～${pet}等你很久啦！`,
+    `欢迎回来，一起开启专注时光吧！`,
+  ]
+}
+
+function showFoxGreeting(text, duration = 3200) {
+  foxGreeting.value = text
+  window.clearTimeout(greetingTimer)
+  greetingTimer = window.setTimeout(() => {
+    foxGreeting.value = ''
+  }, duration)
+}
+
+function petFox() {
+  showFoxGreeting(clickGreetings[Math.floor(Math.random() * clickGreetings.length)], 2200)
+}
+
+function maybeWelcomeHome() {
+  if (sessionStorage.getItem('chong-xueba-welcome-home') !== '1') return
+  sessionStorage.removeItem('chong-xueba-welcome-home')
+
+  const greetings = buildWelcomeGreetings()
+  showFoxGreeting(greetings[Math.floor(Math.random() * greetings.length)], 3500)
+}
 
 const stats = [
   {
@@ -61,7 +103,7 @@ const features = [
   {
     icon: 'trophy',
     label: '排行榜',
-    path: '/achievement',
+    path: '/leaderboard',
     iconBg: 'linear-gradient(145deg, #eff6ff 0%, #c7d2fe 55%, #a5b4fc 100%)',
     iconColor: '#6366f1',
     iconShadow: '0 3px 10px rgba(99, 102, 241, 0.2)',
@@ -71,35 +113,32 @@ const features = [
 function formatCoins(n) {
   return n.toLocaleString('zh-CN')
 }
+
+onMounted(async () => {
+  if (!user.loaded) {
+    try { await user.fetchUser() } catch { /* guest fallback */ }
+  }
+  welcomeTimer = window.setTimeout(maybeWelcomeHome, 700)
+})
+
+onBeforeUnmount(() => {
+  window.clearTimeout(greetingTimer)
+  window.clearTimeout(welcomeTimer)
+})
 </script>
 
 <template>
   <div class="home page">
-    <!-- 梦幻星空 + 云朵背景 -->
+    <!-- 首页背景图 -->
     <div class="dream-bg">
-      <div class="sky-gradient" />
-      <div class="stars-layer" />
-      <div class="cloud cloud-a" />
-      <div class="cloud cloud-b" />
-      <div class="cloud cloud-c" />
-      <div class="sparkle" v-for="i in 8" :key="i" :style="{ '--i': i }" />
-    </div>
-
-    <!-- 状态栏 -->
-    <div class="status-bar">
-      <span class="time">9:41</span>
-      <div class="status-icons">
-        <span class="signal" />
-        <span class="wifi" />
-        <span class="battery" />
-      </div>
+      <img src="/首页.png" alt="" class="dream-bg-img">
     </div>
 
     <!-- 顶部用户信息 -->
     <header class="top-header">
       <div class="user-block" @click="router.push('/profile')">
         <div class="avatar">
-          <img src="https://api.dicebear.com/7.x/adventurer/png?seed=xiaogun&backgroundColor=c0aede" alt="avatar" />
+          <img :src="avatarUrl(user.avatarSeed, user.avatarUrl)" alt="avatar" />
         </div>
         <div class="user-detail">
           <div class="name-row">
@@ -129,15 +168,16 @@ function formatCoins(n) {
     </header>
 
     <div class="main-stage">
-      <!-- Live2D 角色区域 -->
+      <!-- 3D 狐狸角色区域 -->
       <section class="hero-section">
-        <Live2DCharacter :top-padding="32" :bottom-padding="58" />
-        <div class="grass-island">
-          <div class="grass-top">
-            <span v-for="f in 6" :key="f" class="flower" :style="{ '--f': f }">✿</span>
-          </div>
-          <div class="island-rock" />
-        </div>
+        <button class="fox-scene" type="button" aria-label="摸摸小橙" @click="petFox">
+          <Transition name="greeting">
+            <span v-if="foxGreeting" class="fox-greeting">{{ foxGreeting }}</span>
+          </Transition>
+          <span class="fox-glow" aria-hidden="true" />
+          <img :src="homeFoxIsland" alt="坐在浮岛上的小狐狸" class="fox-model">
+          <span class="fox-shadow" aria-hidden="true" />
+        </button>
       </section>
 
       <!-- 操作面板：状态值 + 专注按钮 + 快捷入口 -->
@@ -194,7 +234,7 @@ function formatCoins(n) {
 
 <style scoped>
 .home {
-  background: #4c6ef5;
+  background: #c8b8e8;
   overflow: hidden;
   height: 100vh;
   height: 100dvh;
@@ -211,113 +251,19 @@ function formatCoins(n) {
   overflow: hidden;
 }
 
-.sky-gradient {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    180deg,
-    #2d4a8a 0%,
-    #5b7fd4 18%,
-    #9b8fd4 42%,
-    #d4b8e8 62%,
-    #f0c8e0 78%,
-    #f8dce8 100%
-  );
+.dream-bg-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
 }
-
-.stars-layer {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 45%;
-  background-image:
-    radial-gradient(1.5px 1.5px at 8% 15%, rgba(255,255,255,0.9) 0%, transparent 100%),
-    radial-gradient(1px 1px at 25% 8%, rgba(255,255,255,0.7) 0%, transparent 100%),
-    radial-gradient(1.5px 1.5px at 45% 22%, rgba(255,255,255,0.8) 0%, transparent 100%),
-    radial-gradient(1px 1px at 65% 12%, rgba(255,255,255,0.6) 0%, transparent 100%),
-    radial-gradient(1.5px 1.5px at 82% 18%, rgba(255,255,255,0.9) 0%, transparent 100%),
-    radial-gradient(1px 1px at 92% 8%, rgba(255,255,255,0.5) 0%, transparent 100%),
-    radial-gradient(1px 1px at 15% 35%, rgba(255,255,255,0.6) 0%, transparent 100%),
-    radial-gradient(1.5px 1.5px at 55% 5%, rgba(255,255,255,0.8) 0%, transparent 100%),
-    radial-gradient(1px 1px at 75% 32%, rgba(255,255,255,0.5) 0%, transparent 100%);
-}
-
-.cloud {
-  position: absolute;
-  border-radius: 50px;
-  background: rgba(255, 255, 255, 0.35);
-  filter: blur(2px);
-}
-
-.cloud-a {
-  width: 120px; height: 40px;
-  bottom: 52%; left: -20px;
-  animation: drift 12s ease-in-out infinite;
-}
-
-.cloud-b {
-  width: 90px; height: 32px;
-  bottom: 56%; right: 10px;
-  animation: drift 10s ease-in-out infinite reverse;
-}
-
-.cloud-c {
-  width: 160px; height: 50px;
-  bottom: 48%; left: 30%;
-  background: rgba(255, 200, 220, 0.4);
-  animation: drift 14s ease-in-out infinite;
-}
-
-.sparkle {
-  position: absolute;
-  width: 4px; height: 4px;
-  background: #fff;
-  border-radius: 50%;
-  opacity: 0;
-  animation: sparkle 3s ease-in-out infinite;
-  animation-delay: calc(var(--i) * 0.4s);
-  top: calc(10% + var(--i) * 8%);
-  left: calc(12% + var(--i) * 10%);
-}
-
-/* ===== 状态栏 ===== */
-.status-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 24px 0;
-  padding-top: calc(8px + env(safe-area-inset-top, 0px));
-  position: relative;
-  z-index: 10;
-  color: #fff;
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.status-icons {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.signal, .wifi, .battery {
-  display: inline-block;
-  background: #fff;
-  border-radius: 2px;
-}
-
-.signal { width: 16px; height: 10px; clip-path: polygon(0 100%, 25% 40%, 50% 70%, 75% 20%, 100% 50%, 100% 100%); }
-.wifi { width: 14px; height: 10px; border-radius: 50% 50% 0 0; background: transparent; border: 2px solid #fff; border-bottom: none; }
-.battery { width: 22px; height: 10px; border: 1.5px solid #fff; border-radius: 3px; position: relative; }
-.battery::after { content: ''; position: absolute; right: -4px; top: 2px; width: 2px; height: 5px; background: #fff; border-radius: 0 1px 1px 0; }
 
 /* ===== 顶部 Header ===== */
 .top-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  padding: 8px 16px 4px;
+  padding: calc(12px + env(safe-area-inset-top, 0px)) 16px 4px;
   position: relative;
   z-index: 10;
   flex-shrink: 0;
@@ -464,59 +410,107 @@ function formatCoins(n) {
   justify-content: space-between;
 }
 
-/* ===== Live2D 英雄区 ===== */
+/* ===== 3D 狐狸英雄区 ===== */
 .hero-section {
   position: relative;
   flex: 1 1 auto;
-  min-height: 180px;
+  min-height: 210px;
   z-index: 5;
   margin-top: 0;
-  padding-top: 6px;
+  padding-top: 2px;
+  overflow: visible;
 }
 
-.grass-island {
+.fox-scene {
   position: absolute;
-  bottom: 6px;
-  left: 50%;
-  transform: translateX(-50%);
+  inset: -8px 10px -14px;
   z-index: 4;
-  animation: islandFloat 4s ease-in-out infinite;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: calc(100% - 20px);
+  cursor: pointer;
+  isolation: isolate;
 }
 
-.grass-top {
-  width: 165px;
-  height: 44px;
-  background: linear-gradient(180deg, #7ec850 0%, #5aad38 100%);
-  border-radius: 50% 50% 10px 10px;
+.fox-model {
   position: relative;
-  z-index: 2;
-  box-shadow: 0 -2px 8px rgba(94, 173, 56, 0.3);
-}
-
-.flower {
-  position: absolute;
-  font-size: 8px;
-  color: #fff;
-  top: 8px;
-  left: calc(var(--f) * 14px + 10px);
-  opacity: 0.8;
-}
-
-.island-rock {
-  width: 132px;
-  height: 26px;
-  margin: -4px auto 0;
-  background: linear-gradient(180deg, #8b7355 0%, #6b5740 100%);
-  border-radius: 0 0 50% 50%;
-  box-shadow: 0 8px 20px rgba(0,0,0,0.2);
-}
-
-.live2d-container,
-:deep(.live2d-container) {
-  position: absolute;
-  inset: 0;
   z-index: 3;
-  min-height: 0;
+  display: block;
+  width: min(76vw, 292px);
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  object-position: center bottom;
+  filter:
+    drop-shadow(0 14px 16px rgba(49, 51, 112, .22))
+    drop-shadow(0 3px 4px rgba(255, 255, 255, .24));
+  transform-origin: 50% 72%;
+  animation: fox-breathe 4.8s ease-in-out infinite;
+  transition: transform .24s cubic-bezier(.2, .8, .2, 1), filter .24s ease;
+}
+
+.fox-scene:active .fox-model {
+  transform: scale(.975) translateY(2px);
+  filter: drop-shadow(0 9px 10px rgba(49, 51, 112, .18));
+}
+
+.fox-glow {
+  position: absolute;
+  z-index: 1;
+  left: 50%;
+  bottom: 8%;
+  width: 72%;
+  aspect-ratio: 1.6;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(255, 244, 170, .34), rgba(181, 160, 255, .16) 48%, transparent 72%);
+  transform: translateX(-50%);
+  filter: blur(10px);
+  animation: fox-glow 4.8s ease-in-out infinite;
+}
+
+.fox-shadow {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  bottom: 1%;
+  width: 45%;
+  height: 8%;
+  border-radius: 50%;
+  background: rgba(54, 50, 91, .22);
+  transform: translateX(-50%);
+  filter: blur(8px);
+}
+
+.fox-greeting {
+  position: absolute;
+  z-index: 6;
+  top: 6px;
+  left: 50%;
+  width: max-content;
+  max-width: 78%;
+  padding: 8px 13px;
+  border: 1px solid rgba(255,255,255,.78);
+  border-radius: 16px 16px 16px 5px;
+  color: #6655ae;
+  background: rgba(255,255,255,.9);
+  box-shadow: 0 8px 22px rgba(58, 55, 128, .15);
+  backdrop-filter: blur(10px);
+  transform: translateX(-50%);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.greeting-enter-active,
+.greeting-leave-active {
+  transition: opacity .2s ease, transform .25s cubic-bezier(.2, .8, .2, 1);
+}
+
+.greeting-enter-from,
+.greeting-leave-to {
+  opacity: 0;
+  transform: translate(-50%, 7px) scale(.94);
 }
 
 /* ===== 操作面板（状态 + 按钮 + 快捷入口） ===== */
@@ -695,18 +689,61 @@ function formatCoins(n) {
   white-space: nowrap;
 }
 
-@keyframes drift {
-  0%, 100% { transform: translateX(0); }
-  50% { transform: translateX(20px); }
+@keyframes fox-breathe {
+  0%, 100% { transform: translateY(0) scale(1); }
+  48% { transform: translateY(-5px) scale(1.008); }
 }
 
-@keyframes sparkle {
-  0%, 100% { opacity: 0; transform: scale(0.5); }
-  50% { opacity: 1; transform: scale(1); }
+@keyframes fox-glow {
+  0%, 100% { opacity: .68; transform: translateX(-50%) scale(.96); }
+  50% { opacity: 1; transform: translateX(-50%) scale(1.04); }
 }
 
-@keyframes islandFloat {
-  0%, 100% { transform: translateX(-50%) translateY(0); }
-  50% { transform: translateX(-50%) translateY(-6px); }
+@media (max-height: 760px) {
+  .hero-section {
+    min-height: 166px;
+  }
+
+  .fox-model {
+    width: min(62vw, 232px);
+  }
+
+  .action-panel {
+    padding-top: 7px;
+  }
+
+  .stats-row {
+    margin-bottom: 10px;
+  }
+
+  .stat-card {
+    min-height: 70px;
+    padding-block: 10px 12px;
+    gap: 8px;
+  }
+
+  .focus-btn {
+    margin-bottom: 9px;
+    padding-block: 12px;
+  }
+
+  .feature-card {
+    min-height: 68px;
+    padding-block: 8px;
+    gap: 5px;
+  }
+
+  .feature-icon {
+    width: 36px;
+    height: 36px;
+    font-size: 17px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fox-model,
+  .fox-glow {
+    animation: none;
+  }
 }
 </style>

@@ -22,11 +22,22 @@ body {
 }
 
 #app {
-  max-width: 430px;
+  max-width: var(--app-max-width);
   margin: 0 auto;
   position: relative;
   background: var(--gradient-bg);
   box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
+}
+
+/* Teleport 到 body 的弹层需手动限制在手机容器宽度内 */
+.mobile-overlay {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: var(--app-max-width);
 }
 
 a {

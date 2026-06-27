@@ -14,6 +14,8 @@ app.use(pinia)
 app.use(router)
 
 const userStore = useUserStore(pinia)
-userStore.fetchUser().catch(() => {})
+if (userStore.isAuthenticated) {
+  userStore.fetchUser().catch(() => {})
+}
 
 app.mount('#app')

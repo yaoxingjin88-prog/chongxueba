@@ -24,7 +24,7 @@ router.get('/', async (req, res, next) => {
     const recentMedals = allRows
       .filter((a) => a.earned_at)
       .sort((a, b) => new Date(b.earned_at) - new Date(a.earned_at))
-      .slice(0, 3)
+      .slice(0, 4)
       .map((a) => ({
         name: a.name,
         date: formatEarnedDate(a.earned_at),

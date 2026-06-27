@@ -19,9 +19,11 @@ async function initDb() {
 
   const schema = fs.readFileSync(path.join(__dirname, '../sql/schema.sql'), 'utf8')
   const seed = fs.readFileSync(path.join(__dirname, '../sql/seed.sql'), 'utf8')
+  const testAccounts = fs.readFileSync(path.join(__dirname, '../sql/seed_test_accounts.sql'), 'utf8')
 
   await connection.query(schema)
   await connection.query(seed)
+  await connection.query(testAccounts)
   await connection.end()
 
   console.log('数据库初始化完成')

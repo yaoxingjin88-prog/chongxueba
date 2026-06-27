@@ -30,6 +30,7 @@
   --tab-height: 64px;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --header-height: 56px;
+  --app-max-width: 430px;
 
   --gradient-bg: linear-gradient(180deg, #0f0a1e 0%, #1a1033 30%, #2d1f5e 70%, #3d2a7a 100%);
   --gradient-btn: linear-gradient(135deg, #9f7aea 0%, #7c5cbf 50%, #6b46c1 100%);
