@@ -3,7 +3,9 @@ import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
 import { avatarUrl } from '../utils/avatar'
+import { speakPet, stopPetSpeech } from '../utils/petSpeech'
 import homeFoxIsland from '../assets/home-fox-island.png'
+import homeSkyBackground from '../assets/home-sky-background.png'
 
 const router = useRouter()
 const user = useUserStore()
@@ -30,6 +32,7 @@ function buildWelcomeGreetings() {
 
 function showFoxGreeting(text, duration = 3200) {
   foxGreeting.value = text
+  speakPet(text, { voice: 'duoduo' })
   window.clearTimeout(greetingTimer)
   greetingTimer = window.setTimeout(() => {
     foxGreeting.value = ''
@@ -122,6 +125,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  stopPetSpeech()
   window.clearTimeout(greetingTimer)
   window.clearTimeout(welcomeTimer)
 })
@@ -131,7 +135,7 @@ onBeforeUnmount(() => {
   <div class="home page">
     <!-- 首页背景图 -->
     <div class="dream-bg">
-      <img src="/首页.png" alt="" class="dream-bg-img">
+      <img :src="homeSkyBackground" alt="" class="dream-bg-img">
     </div>
 
     <!-- 顶部用户信息 -->

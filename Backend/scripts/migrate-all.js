@@ -26,6 +26,8 @@ const files = [
   'migrate_study_menu.sql',
   'migrate_study_room_info.sql',
   'migrate_study_invite.sql',
+  'migrate_video_focus_ai.sql',
+  'migrate_pet_nurture.sql',
 ]
 
 function splitStatements(sql) {

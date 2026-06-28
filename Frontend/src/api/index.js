@@ -33,10 +33,32 @@ export const api = {
   completeTask: (id) => request(`/tasks/${id}/complete`, { method: 'PATCH', body: '{}' }),
   getMallItems: (category = 0) => request(`/mall/items?category=${category}`),
   purchaseItem: (itemId) => request('/mall/purchase', { method: 'POST', body: JSON.stringify({ itemId }) }),
-  getGrowth: () => request('/growth'),
+  getGrowth: (period = 'week') => request(`/growth?period=${period}`),
+  getGrowthShare: (period = 'week') => request('/growth/share', {
+    method: 'POST',
+    body: JSON.stringify({ action: 'preview', period }),
+  }),
+  growthShareAction: (action, period = 'week') => request('/growth/share', {
+    method: 'POST',
+    body: JSON.stringify({ action, period }),
+  }),
   getAchievements: () => request('/achievements'),
   getPet: () => request('/pet'),
   feedPet: () => request('/pet/feed', { method: 'POST', body: '{}' }),
+  petAction: (type) => request('/pet/action', {
+    method: 'POST',
+    body: JSON.stringify({ type }),
+  }),
+  claimPetIntimacyReward: () => request('/pet/intimacy-reward', { method: 'POST', body: '{}' }),
+  getPetEncyclopedia: () => request('/pet/encyclopedia'),
+  getPetShare: () => request('/pet/share', {
+    method: 'POST',
+    body: JSON.stringify({ action: 'preview' }),
+  }),
+  petShareAction: (action) => request('/pet/share', {
+    method: 'POST',
+    body: JSON.stringify({ action }),
+  }),
   completeFocus: (minutes) => request('/focus/complete', { method: 'POST', body: JSON.stringify({ minutes }) }),
   getFocusShare: (payload) => request('/focus/share', {
     method: 'POST',
@@ -88,12 +110,36 @@ export const api = {
   voiceHandRaise: () => request('/study-room/voice/hand-raise', { method: 'POST', body: '{}' }),
   voiceEndFocus: () => request('/study-room/voice/end-focus', { method: 'POST', body: '{}' }),
   getVideoRoom: () => request('/study-room/video'),
+  getVideoRoomMembers: ({ page = 1, pageSize = 24, q = '', roomCode } = {}) => {
+    const params = new URLSearchParams()
+    params.set('page', String(page))
+    params.set('pageSize', String(pageSize))
+    if (q) params.set('q', q)
+    if (roomCode) params.set('roomCode', roomCode)
+    return request(`/study-room/video/members?${params}`)
+  },
   patchVideoSettings: (payload) => request('/study-room/video/settings', {
     method: 'PATCH',
     body: JSON.stringify(payload),
   }),
   switchVideoCamera: () => request('/study-room/video/switch-camera', { method: 'POST', body: '{}' }),
   videoEndFocus: () => request('/study-room/video/end-focus', { method: 'POST', body: '{}' }),
+  startVideoFocusAnalysis: (roomCode = 'SR-DEFAULT') =>
+    request('/study-room/video/focus-analysis/start', {
+      method: 'POST',
+      body: JSON.stringify({ roomCode }),
+    }),
+  reportVideoFocusEvents: (sessionId, events, summary) =>
+    request('/study-room/video/focus-analysis/events', {
+      method: 'POST',
+      body: JSON.stringify({ sessionId, events, summary }),
+    }),
+  endVideoFocusAnalysis: (sessionId, summary) =>
+    request('/study-room/video/focus-analysis/end', {
+      method: 'POST',
+      body: JSON.stringify({ sessionId, summary }),
+    }),
+  getVideoFocusSummary: () => request('/study-room/video/focus-analysis/summary'),
   getStudyRoomMenu: (mode = 'voice') => request(`/study-room/menu?mode=${encodeURIComponent(mode)}`),
   getStudyRoomInfo: (mode = 'voice') => request(`/study-room/menu/room-info?mode=${encodeURIComponent(mode)}`),
   studyRoomMenuAction: (payload) => request('/study-room/menu/action', {

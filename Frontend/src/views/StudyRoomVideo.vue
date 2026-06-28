@@ -1,9 +1,13 @@
 <script setup>
-import { ref, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '../api'
 import { avatarUrl } from '../utils/avatar'
+import { STATUS_HINTS, FOCUS_LEVEL } from '../utils/focusMetrics.js'
+import { useFocusAnalyzer } from '../composables/useFocusAnalyzer.js'
 import StudyRoomMenuSheet from '../components/StudyRoomMenuSheet.vue'
+import VideoFocusOverlay from '../components/VideoFocusOverlay.vue'
+import FocusSessionReport from '../components/FocusSessionReport.vue'
 
 const router = useRouter()
 
@@ -16,8 +20,39 @@ const videoEl = ref(null)
 const mediaStream = ref(null)
 const cameraReady = ref(false)
 const cameraError = ref('')
+const focusSessionId = ref(null)
+const sessionReport = ref(null)
 let pollTimer = null
 let countdownTimer = null
+
+const alertLevel = computed(() => room.value?.self?.aiAlertLevel || 'standard')
+const aiFocusEnabled = computed(() => room.value?.self?.aiFocusEnabled !== false)
+
+const focusAnalyzer = useFocusAnalyzer({
+  alertLevel: alertLevel.value,
+  onReport: async (sessionId, events) => {
+    try {
+      await api.reportVideoFocusEvents(sessionId, events, focusAnalyzer.getSummary())
+    } catch {
+      /* ignore background sync errors */
+    }
+  },
+  onAlert: (level) => {
+    showToast(STATUS_HINTS[level] || '回来继续自习吧～')
+  },
+  onDeepDistraction: () => {
+    /* 明显分心：静默记录，不强打扰 */
+  },
+})
+
+watch(alertLevel, (level) => {
+  focusAnalyzer.setAlertLevel(level)
+})
+
+const isDistracted = computed(() =>
+  aiFocusEnabled.value
+  && [FOCUS_LEVEL.LIGHT_DISTRACTION, FOCUS_LEVEL.DEEP_DISTRACTION, 'light_distraction', 'deep_distraction'].includes(focusAnalyzer.status.value),
+)
 
 function showToast(msg) {
   toast.value = msg
@@ -68,9 +103,48 @@ async function attachStream(stream) {
     await el.play()
     cameraReady.value = true
     cameraError.value = ''
+    await maybeStartAiAnalysis()
   } catch {
     cameraError.value = '摄像头预览失败'
   }
+}
+
+async function maybeStartAiAnalysis() {
+  if (!aiFocusEnabled.value) return
+  try {
+    if (!focusSessionId.value) {
+      const data = await api.startVideoFocusAnalysis(room.value?.roomCode || 'SR-DEFAULT')
+      focusSessionId.value = data.sessionId
+    }
+    focusAnalyzer.resetTracker()
+    const video = cameraReady.value ? videoEl.value : null
+    const stream = mediaStream.value || null
+    await focusAnalyzer.start(video, focusSessionId.value, stream)
+  } catch (err) {
+    showToast(err.message || '专注感知启动失败')
+  }
+}
+
+async function stopAiAnalysis(endSession = false) {
+  focusAnalyzer.stop()
+  if (!focusSessionId.value) return null
+
+  const summary = focusAnalyzer.getSummary()
+  try {
+    if (endSession) {
+      const data = await api.endVideoFocusAnalysis(focusSessionId.value, summary)
+      focusSessionId.value = null
+      return data
+    }
+    await api.reportVideoFocusEvents(focusSessionId.value, [{
+      score: summary.focusScoreAvg,
+      status: focusAnalyzer.status.value,
+      metrics: {},
+    }], summary)
+  } catch {
+    return null
+  }
+  return null
 }
 
 async function startCamera() {
@@ -149,9 +223,45 @@ async function toggleCamera() {
     if (next) {
       await startCamera()
     } else {
+      focusAnalyzer.stop()
       stopCamera()
       cameraError.value = ''
+      if (aiFocusEnabled.value) await maybeStartAiAnalysis()
     }
+  } catch (err) {
+    showToast(err.message || '设置失败')
+  }
+}
+
+async function toggleAiFocus() {
+  if (!room.value) return
+  const next = !room.value.self.aiFocusEnabled
+  try {
+    room.value = await api.patchVideoSettings({ aiFocusEnabled: next })
+    if (next) {
+      await maybeStartAiAnalysis()
+      showToast('专注感知 2.0 已开启')
+    } else {
+      focusAnalyzer.stop()
+      showToast('专注感知已关闭')
+    }
+  } catch (err) {
+    showToast(err.message || '设置失败')
+  }
+}
+
+async function cycleAlertLevel() {
+  if (!room.value?.self.aiFocusEnabled) {
+    showToast('请先开启 AI 专注助手')
+    return
+  }
+  const order = ['standard', 'light', 'report']
+  const idx = order.indexOf(room.value.self.aiAlertLevel || 'standard')
+  const next = order[(idx + 1) % order.length]
+  try {
+    room.value = await api.patchVideoSettings({ aiAlertLevel: next })
+    const labels = { standard: '标准（声音+震动）', light: '轻柔（仅震动）', report: '仅报告' }
+    showToast(`提醒：${labels[next]}`)
   } catch (err) {
     showToast(err.message || '设置失败')
   }
@@ -193,17 +303,28 @@ function toggleBrightness() {
 
 async function endFocus() {
   try {
+    const report = await stopAiAnalysis(true)
     await api.videoEndFocus()
-    showToast('专注已结束')
-    router.back()
+    if (report) {
+      sessionReport.value = report
+    } else {
+      showToast('专注已结束')
+      router.back()
+    }
   } catch (err) {
     showToast(err.message || '操作失败')
   }
 }
 
+function closeReport() {
+  sessionReport.value = null
+  router.back()
+}
+
 async function exitRoom() {
   if (!window.confirm('确定退出视频自习室吗？')) return
   try {
+    await stopAiAnalysis(true)
     await api.leaveStudyInteract()
     router.back()
   } catch (err) {
@@ -212,19 +333,25 @@ async function exitRoom() {
 }
 
 function showMoreClassmates() {
-  showToast(`还有 ${room.value?.moreCount || 0} 位同学在线`)
+  router.push('/study-room/video/members')
 }
 
 onMounted(async () => {
   await loadRoom()
+  if (room.value?.self.focusSessionId) {
+    focusSessionId.value = room.value.self.focusSessionId
+  }
   if (room.value?.self.cameraEnabled) {
     await startCamera()
+  } else if (aiFocusEnabled.value) {
+    await maybeStartAiAnalysis()
   }
   startCountdown()
   pollTimer = window.setInterval(loadRoom, 10000)
 })
 
 onBeforeUnmount(() => {
+  focusAnalyzer.destroy()
   stopCamera()
   window.clearInterval(pollTimer)
   window.clearInterval(countdownTimer)
@@ -282,6 +409,7 @@ onBeforeUnmount(() => {
           blurred: room.self.backgroundBlur,
           bright: room.self.screenBrightness,
           'privacy-on': room.self.privacyMode,
+          'distracted-warn': isDistracted,
         }"
       >
         <video
@@ -315,6 +443,14 @@ onBeforeUnmount(() => {
           <font-awesome-icon icon="wand-magic-sparkles" />
           美颜开启
         </button>
+
+        <VideoFocusOverlay
+          v-if="aiFocusEnabled"
+          :score="focusAnalyzer.score.value"
+          :status="focusAnalyzer.status.value"
+          :loading="focusAnalyzer.loading.value"
+          :enabled="aiFocusEnabled"
+        />
       </section>
 
       <section class="grid-row">
@@ -341,6 +477,15 @@ onBeforeUnmount(() => {
 
       <div class="video-bottom-dock">
         <section class="feature-panel">
+          <button
+            type="button"
+            class="feature-btn"
+            :class="{ active: room.self.aiFocusEnabled }"
+            @click="toggleAiFocus"
+          >
+            <span class="feature-icon ai"><font-awesome-icon icon="robot" /></span>
+            AI感知
+          </button>
           <button
             type="button"
             class="feature-btn"
@@ -371,11 +516,11 @@ onBeforeUnmount(() => {
           <button
             type="button"
             class="feature-btn"
-            :class="{ active: room.self.screenBrightness }"
-            @click="toggleBrightness"
+            :class="{ active: room.self.aiFocusEnabled && room.self.aiAlertLevel === 'standard' }"
+            @click="cycleAlertLevel"
           >
-            <span class="feature-icon"><font-awesome-icon icon="sun" /></span>
-            屏幕亮度
+            <span class="feature-icon"><font-awesome-icon icon="bell" /></span>
+            提醒
           </button>
         </section>
 
@@ -405,6 +550,8 @@ onBeforeUnmount(() => {
     </Transition>
 
     <StudyRoomMenuSheet v-model="menuOpen" mode="video" @toast="showToast" @exit="exitRoom" />
+
+    <FocusSessionReport :report="sessionReport" @close="closeReport" />
   </div>
 </template>
 
@@ -774,7 +921,7 @@ onBeforeUnmount(() => {
 
 .feature-panel {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 4px;
   padding: 6px 10px 4px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.2) 0%, rgba(210, 195, 255, 0.32) 100%);
@@ -808,6 +955,25 @@ onBeforeUnmount(() => {
 .feature-btn.active .feature-icon {
   background: rgba(253, 230, 138, .22);
   box-shadow: 0 0 8px rgba(253, 230, 138, .24);
+}
+
+.feature-icon.ai {
+  background: rgba(129, 140, 248, .22);
+}
+
+.feature-btn.active .feature-icon.ai {
+  background: rgba(167, 139, 250, .35);
+  box-shadow: 0 0 8px rgba(167, 139, 250, .35);
+}
+
+.main-video.distracted-warn {
+  box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.65), 0 12px 32px rgba(0, 0, 0, 0.2);
+  animation: warnPulse 2s ease-in-out infinite;
+}
+
+@keyframes warnPulse {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.45), 0 12px 32px rgba(0, 0, 0, 0.2); }
+  50% { box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.75), 0 12px 32px rgba(0, 0, 0, 0.2); }
 }
 
 .toolbar {

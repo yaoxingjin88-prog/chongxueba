@@ -1,24 +1,107 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
 import { api } from '../api'
+import GrowthShareSheet from '../components/GrowthShareSheet.vue'
+import stageEgg from '../assets/pet-stage-egg.png'
+import stageBaby from '../assets/pet-stage-baby.png'
+import stageGrowth from '../assets/home-fox-island.png'
+import stageMature from '../assets/pet-stage-mature.png'
 
 const router = useRouter()
 const user = useUserStore()
-const weekLabel = ref('本周报告')
-const chartData = ref([])
-const weekChangePercent = ref(25)
-const weekTotalHours = ref(18.75)
-const weekExpGain = ref(850)
-const beatPercent = ref(92)
-const maxValue = 3.2
 
+const period = ref('week')
+const periodMenuOpen = ref(false)
+const shareOpen = ref(false)
+const toastMsg = ref('')
+const loading = ref(false)
+
+const periodOptions = [
+  { key: 'week', label: '本周报告' },
+  { key: 'month', label: '本月报告' },
+]
+
+const periodLabel = ref('本周报告')
+const compareLabel = ref('较上周')
+const trendLabel = ref('本周')
+const focusDuration = ref(user.focusWeek)
+const chartData = ref([])
+const changePercent = ref(25)
+const totalHours = ref(18.75)
+const periodExpGain = ref(850)
+const beatPercent = ref(92)
+const maxStreakDays = ref(user.streakDays)
+const petName = ref(user.petName)
+const petLevel = ref(user.petLevel)
+const petExp = ref(0)
+const petExpMax = ref(1)
+const currentStageKey = ref('growth')
+const selectedStageKey = ref('growth')
+const petEvolutionStages = ref([])
+
+const petStages = [
+  {
+    key: 'egg',
+    name: '星愿蛋',
+    shortName: '蛋',
+    level: 'Lv.1',
+    image: stageEgg,
+    description: '专注的每一分钟，都在唤醒蛋壳里的星光。',
+  },
+  {
+    key: 'baby',
+    name: '幼年小狐',
+    shortName: '幼年',
+    level: 'Lv.5',
+    image: stageBaby,
+    description: '好奇心旺盛，会陪你完成最初的学习任务。',
+  },
+  {
+    key: 'growth',
+    name: '成长小狐',
+    shortName: '成长',
+    level: 'Lv.15',
+    image: stageGrowth,
+    description: '已经掌握稳定的学习节奏，专注力持续成长。',
+  },
+  {
+    key: 'mature',
+    name: '学霸星狐',
+    shortName: '成熟',
+    level: 'Lv.30',
+    image: stageMature,
+    description: '完成长期目标后进化，解锁专属星光装扮。',
+  },
+]
+
+const maxValue = computed(() => {
+  const peak = Math.max(...chartData.value.map((item) => item.value), 0.5)
+  return Math.ceil(peak * 1.25 * 10) / 10
+})
+
+const chartLabelStep = computed(() => {
+  const len = chartData.value.length
+  if (len <= 7) return 1
+  return Math.ceil(len / 7)
+})
+
+const visibleChartLabels = computed(() =>
+  chartData.value.filter((_, index) =>
+    index === chartData.value.length - 1 || index % chartLabelStep.value === 0,
+  ),
+)
+
+const changeText = computed(() => {
+  const prefix = changePercent.value >= 0 ? '+' : ''
+  return `${compareLabel.value} ${prefix}${changePercent.value}%`
+})
 const chartPoints = computed(() =>
   chartData.value.map((item, index) => ({
     ...item,
     x: 14 + index * (292 / Math.max(chartData.value.length - 1, 1)),
-    y: 164 - (item.value / maxValue) * 112,
+    y: 164 - (item.value / maxValue.value) * 112,
   })),
 )
 
@@ -30,22 +113,97 @@ const areaPath = computed(() => {
 })
 
 const lastPoint = computed(() => chartPoints.value[chartPoints.value.length - 1] || { x: 306, y: 164, day: '', value: 0 })
+const selectedStage = computed(() => petStages.find((stage) => stage.key === selectedStageKey.value) || petStages[2])
+const currentStageIndex = computed(() => Math.max(0, petStages.findIndex((stage) => stage.key === currentStageKey.value)))
+const growthProgress = computed(() => Math.min(100, Math.round((petExp.value / Math.max(petExpMax.value, 1)) * 100)))
+const nextStage = computed(() => petStages[currentStageIndex.value + 1] || null)
 
 async function loadGrowth() {
-  const data = await api.getGrowth()
-  weekLabel.value = data.weekLabel
-  weekChangePercent.value = data.weekChangePercent
-  weekTotalHours.value = data.weekTotalHours
-  weekExpGain.value = data.weekExpGain
-  beatPercent.value = data.beatPercent
-  chartData.value = data.chartData
+  loading.value = true
+  try {
+    const [data, pet] = await Promise.all([
+      api.getGrowth(period.value),
+      api.getPet(),
+    ])
+    periodLabel.value = data.periodLabel
+    compareLabel.value = data.compareLabel
+    trendLabel.value = data.trendLabel
+    focusDuration.value = data.focusDuration
+    changePercent.value = data.changePercent
+    totalHours.value = data.totalHours
+    periodExpGain.value = data.periodExpGain
+    beatPercent.value = data.beatPercent
+    maxStreakDays.value = data.maxStreakDays
+    chartData.value = data.chartData
+
+    petName.value = pet.profile?.petName || user.petName
+    petLevel.value = pet.profile?.level || user.petLevel
+    petExp.value = pet.profile?.exp || 0
+    petExpMax.value = pet.profile?.expMax || 1
+    petEvolutionStages.value = pet.evolutionStages || []
+    const activeIndex = pet.evolutionStages?.findIndex((stage) => stage.active) ?? 2
+    currentStageKey.value = petStages[Math.max(activeIndex, 0)]?.key || 'growth'
+    selectedStageKey.value = currentStageKey.value
+  } catch (err) {
+    showToast(err.message || '加载失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+async function selectPeriod(nextPeriod) {
+  if (period.value === nextPeriod) {
+    periodMenuOpen.value = false
+    return
+  }
+  period.value = nextPeriod
+  periodMenuOpen.value = false
+  await loadGrowth()
+}
+
+function togglePeriodMenu() {
+  periodMenuOpen.value = !periodMenuOpen.value
+}
+
+function closePeriodMenu(event) {
+  if (periodMenuOpen.value && event?.target && !event.target.closest('.period-wrap')) {
+    periodMenuOpen.value = false
+  }
+}
+
+function showToast(message) {
+  toastMsg.value = message
+  window.setTimeout(() => {
+    if (toastMsg.value === message) toastMsg.value = ''
+  }, 2200)
+}
+
+function openShare() {
+  shareOpen.value = true
+}
+
+function getStageStatus(index) {
+  if (index === currentStageIndex.value) return 'current'
+  if (petEvolutionStages.value[index]?.locked || index > currentStageIndex.value) return 'locked'
+  return 'unlocked'
+}
+
+function selectStage(stage) {
+  selectedStageKey.value = stage.key
 }
 
 function goBack() {
   router.push('/home')
 }
 
-onMounted(loadGrowth)
+onMounted(() => {
+  loadGrowth()
+  document.addEventListener('click', closePeriodMenu)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', closePeriodMenu)
+})
 </script>
 
 <template>
@@ -67,21 +225,35 @@ onMounted(loadGrowth)
     </header>
 
     <main class="report-content">
-      <button class="week-selector" type="button">
-        {{ weekLabel }}
-        <font-awesome-icon icon="chevron-down" />
-      </button>
+      <div class="period-wrap" @click.stop>
+        <button class="week-selector" type="button" @click.stop="togglePeriodMenu">
+          {{ periodLabel }}
+          <font-awesome-icon :icon="periodMenuOpen ? 'chevron-down' : 'chevron-down'" />
+        </button>
+        <div v-if="periodMenuOpen" class="period-menu">
+          <button
+            v-for="item in periodOptions"
+            :key="item.key"
+            type="button"
+            class="period-option"
+            :class="{ active: period === item.key }"
+            @click="selectPeriod(item.key)"
+          >
+            {{ item.label }}
+          </button>
+        </div>
+      </div>
 
-      <section class="summary-cards" aria-label="本周数据摘要">
+      <section class="summary-cards" :aria-label="`${periodLabel}数据摘要`">
         <article class="summary-card">
           <span class="card-label">专注时长</span>
-          <p class="card-value">{{ user.focusWeek }}</p>
-          <p class="card-change">较上周 <strong>+{{ weekChangePercent }}%</strong></p>
+          <p class="card-value">{{ focusDuration }}</p>
+          <p class="card-change"><strong>{{ changeText }}</strong></p>
         </article>
         <article class="summary-card">
           <span class="card-label">连续打卡</span>
           <p class="card-value">{{ user.streakDays }}<small>天</small></p>
-          <p class="card-change">最长连续 {{ user.streakDays }} 天</p>
+          <p class="card-change">最长连续 {{ maxStreakDays }} 天</p>
         </article>
       </section>
 
@@ -91,7 +263,7 @@ onMounted(loadGrowth)
             <span class="section-kicker">学习统计</span>
             <h2>专注趋势</h2>
           </div>
-          <span class="trend-total">本周 {{ weekTotalHours }}h</span>
+          <span class="trend-total">{{ trendLabel }} {{ totalHours }}h</span>
         </div>
 
         <div class="chart-wrap">
@@ -125,65 +297,86 @@ onMounted(loadGrowth)
               class="trend-point"
             />
           </svg>
-          <div class="chart-labels">
-            <span v-for="item in chartData" :key="item.day">{{ item.day }}</span>
+          <div class="chart-labels" :style="{ gridTemplateColumns: `repeat(${visibleChartLabels.length}, 1fr)` }">
+            <span v-for="item in visibleChartLabels" :key="item.day">{{ item.day }}</span>
           </div>
         </div>
       </section>
 
-      <section class="pet-growth-card">
-        <div class="pet-copy">
-          <span class="section-kicker">宠物成长</span>
-          <div class="level-row">
-            <strong>Lv.{{ user.level }}</strong>
-            <span>+{{ weekExpGain }} EXP</span>
+      <section class="evolution-card" aria-labelledby="pet-growth-title">
+        <div class="evolution-heading">
+          <div>
+            <span class="section-kicker">宠物成长</span>
+            <h2 id="pet-growth-title">{{ petName }}的成长档案</h2>
           </div>
-          <p>超过了 <b>{{ beatPercent }}%</b> 的用户</p>
+          <span class="current-stage-badge">当前 · {{ petStages[currentStageIndex].shortName }}</span>
         </div>
 
-        <div class="fox-wrap" aria-label="小狐狸宠物">
-          <span class="pet-spark spark-one">✦</span>
-          <span class="pet-spark spark-two">✦</span>
-          <svg class="fox" viewBox="0 0 180 135" role="img" aria-hidden="true">
-            <defs>
-              <linearGradient id="foxOrange" x1="0" x2="1" y1="0" y2="1">
-                <stop offset="0%" stop-color="#ffb45f" />
-                <stop offset="100%" stop-color="#e56d35" />
-              </linearGradient>
-              <linearGradient id="foxTail" x1="0" x2="1">
-                <stop offset="0%" stop-color="#dc6033" />
-                <stop offset="72%" stop-color="#f39a4d" />
-                <stop offset="100%" stop-color="#fff3dc" />
-              </linearGradient>
-            </defs>
-            <ellipse cx="94" cy="123" rx="58" ry="8" fill="#7658b8" opacity=".16" />
-            <path d="M128 96 C171 70 174 111 141 121 C126 126 116 117 121 109 Z" fill="url(#foxTail)" />
-            <ellipse cx="94" cy="96" rx="36" ry="28" fill="url(#foxOrange)" />
-            <path d="M67 46 L72 8 L98 36 Z" fill="#d75d32" />
-            <path d="M112 38 L139 10 L136 53 Z" fill="#d75d32" />
-            <path d="M72 18 L77 39 L91 35 Z" fill="#743b4b" opacity=".75" />
-            <path d="M130 20 L117 39 L133 44 Z" fill="#743b4b" opacity=".75" />
-            <ellipse cx="103" cy="58" rx="41" ry="35" fill="url(#foxOrange)" />
-            <path d="M69 62 C78 91 121 96 139 64 C128 72 118 72 103 65 C89 74 79 73 69 62 Z" fill="#fff0d7" />
-            <ellipse cx="87" cy="57" rx="3.5" ry="5" fill="#543543" />
-            <ellipse cx="120" cy="57" rx="3.5" ry="5" fill="#543543" />
-            <path d="M99 68 Q104 73 109 68" fill="none" stroke="#70404a" stroke-width="2.5" stroke-linecap="round" />
-            <path d="M100 64 Q104 60 108 64 Q104 68 100 64" fill="#69404b" />
-            <path d="M77 90 Q67 119 76 121" fill="none" stroke="#b84f32" stroke-width="9" stroke-linecap="round" />
-            <path d="M110 96 Q117 119 113 122" fill="none" stroke="#b84f32" stroke-width="9" stroke-linecap="round" />
-          </svg>
+        <div class="evolution-hero">
+          <div
+            class="selected-stage-visual"
+            :class="{ locked: getStageStatus(petStages.indexOf(selectedStage)) === 'locked' }"
+          >
+            <span class="stage-aura" aria-hidden="true" />
+            <img :src="selectedStage.image" :alt="selectedStage.name">
+          </div>
+
+          <div class="selected-stage-copy">
+            <span class="stage-level">{{ selectedStage.level }} 解锁</span>
+            <h3>{{ selectedStage.name }}</h3>
+            <p>{{ selectedStage.description }}</p>
+            <div class="growth-progress-copy">
+              <span>Lv.{{ petLevel }}</span>
+              <strong>{{ growthProgress }}%</strong>
+            </div>
+            <div class="growth-progress-track">
+              <span :style="{ width: `${growthProgress}%` }" />
+            </div>
+            <small v-if="nextStage">距离 {{ nextStage.name }} 还需持续积累经验</small>
+            <small v-else>已达到最高成长阶段</small>
+          </div>
         </div>
 
-        <button class="share-mini" type="button" aria-label="分享成长记录">
-          <font-awesome-icon icon="share-nodes" />
-        </button>
+        <div class="stage-gallery" aria-label="宠物四个成长阶段">
+          <button
+            v-for="(stage, index) in petStages"
+            :key="stage.key"
+            type="button"
+            class="stage-card"
+            :class="[getStageStatus(index), { selected: selectedStageKey === stage.key }]"
+            @click="selectStage(stage)"
+          >
+            <span class="stage-thumb">
+              <img :src="stage.image" alt="">
+              <span v-if="getStageStatus(index) === 'locked'" class="stage-lock">
+                <font-awesome-icon icon="lock" />
+              </span>
+              <span v-else-if="getStageStatus(index) === 'current'" class="stage-check">
+                <font-awesome-icon icon="check" />
+              </span>
+            </span>
+            <strong>{{ stage.shortName }}</strong>
+            <small>{{ stage.level }}</small>
+          </button>
+        </div>
+
+        <div class="evolution-note">
+          <font-awesome-icon icon="star" />
+          <span>{{ periodLabel.replace('报告', '') }}获得 <b>+{{ periodExpGain }} EXP</b>，成长速度超过 {{ beatPercent }}% 的用户</span>
+        </div>
       </section>
 
-      <button class="share-btn" type="button">
+      <button class="share-btn" type="button" :disabled="loading" @click="openShare">
         <font-awesome-icon icon="share-nodes" />
         生成分享卡片
       </button>
     </main>
+
+    <GrowthShareSheet v-model="shareOpen" :period="period" @toast="showToast" />
+
+    <Transition name="toast-fade">
+      <div v-if="toastMsg" class="growth-toast">{{ toastMsg }}</div>
+    </Transition>
   </div>
 </template>
 
@@ -324,6 +517,41 @@ onMounted(loadGrowth)
   -webkit-backdrop-filter: blur(12px);
 }
 
+.period-wrap {
+  position: relative;
+  width: max-content;
+}
+
+.period-menu {
+  position: absolute;
+  z-index: 6;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 120px;
+  padding: 6px;
+  border-radius: 14px;
+  background: rgba(255,255,255,.95);
+  border: 1px solid rgba(120, 95, 193, .15);
+  box-shadow: 0 10px 24px rgba(83, 62, 153, .18);
+}
+
+.period-option {
+  display: block;
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: 10px;
+  text-align: left;
+  color: #6b5a96;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.period-option.active,
+.period-option:active {
+  color: #7255dd;
+  background: rgba(126, 94, 224, .1);
+}
+
 .week-selector svg {
   font-size: 9px;
 }
@@ -336,7 +564,7 @@ onMounted(loadGrowth)
 
 .summary-card,
 .trend-card,
-.pet-growth-card {
+.evolution-card {
   border: 1px solid rgba(255,255,255,.58);
   background: linear-gradient(145deg, rgba(255,255,255,.82), rgba(250,248,255,.67));
   box-shadow: 0 10px 28px rgba(83, 62, 153, .12), inset 0 1px 0 rgba(255,255,255,.6);
@@ -450,7 +678,6 @@ onMounted(loadGrowth)
 
 .chart-labels {
   display: grid;
-  grid-template-columns: repeat(8, 1fr);
   margin-top: -8px;
   color: #948aa9;
   font-size: 8px;
@@ -494,104 +721,270 @@ onMounted(loadGrowth)
   opacity: .82;
 }
 
-.pet-growth-card {
+.evolution-card {
   position: relative;
-  display: flex;
-  min-height: clamp(160px, 21vh, 190px);
-  align-items: center;
   overflow: hidden;
+  flex-shrink: 0;
   padding: 16px;
-  border-radius: 18px;
+  border-radius: 20px;
 }
 
-.pet-growth-card::before {
+.evolution-card::before {
   content: '';
   position: absolute;
-  width: 170px;
-  height: 170px;
-  right: -35px;
-  bottom: -58px;
+  width: 240px;
+  height: 240px;
+  top: 40px;
+  left: -90px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(164, 132, 240, .18), transparent 68%);
+  background: radial-gradient(circle, rgba(167, 139, 250, .18), transparent 68%);
+  pointer-events: none;
 }
 
-.pet-copy {
+.evolution-heading {
   position: relative;
   z-index: 2;
-  width: 52%;
-}
-
-.level-row {
   display: flex;
-  align-items: baseline;
-  gap: 8px;
-  margin-top: 7px;
+  align-items: center;
+  justify-content: space-between;
 }
 
-.level-row strong {
-  color: #7455dc;
-  font-size: 25px;
-  font-weight: 850;
-  letter-spacing: -.5px;
+.evolution-heading h2 {
+  margin-top: 3px;
+  color: #4d426e;
+  font-size: 17px;
+  font-weight: 780;
 }
 
-.level-row span {
-  color: #29b995;
+.current-stage-badge {
+  padding: 5px 9px;
+  border: 1px solid rgba(132, 102, 225, .14);
+  border-radius: 999px;
+  color: #7457d4;
+  background: rgba(139, 111, 225, .1);
   font-size: 10px;
   font-weight: 700;
 }
 
-.pet-copy p {
-  margin-top: 9px;
-  color: #81769a;
-  font-size: 11px;
+.evolution-hero {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: 46% 1fr;
+  align-items: center;
+  min-height: 184px;
+  margin-top: 8px;
 }
 
-.pet-copy b {
-  color: #765add;
+.selected-stage-visual {
+  position: relative;
+  display: grid;
+  height: 174px;
+  place-items: center;
 }
 
-.fox-wrap {
-  position: absolute;
-  right: 21px;
-  bottom: 4px;
-  width: clamp(154px, 39vw, 174px);
-  height: clamp(121px, 15.5vh, 142px);
-}
-
-.fox {
+.selected-stage-visual img {
+  position: relative;
+  z-index: 2;
   width: 100%;
   height: 100%;
-  overflow: visible;
-  filter: drop-shadow(0 8px 8px rgba(111, 65, 55, .14));
+  object-fit: contain;
+  filter: drop-shadow(0 10px 10px rgba(77, 55, 130, .16));
+  animation: stageFloat 4.2s ease-in-out infinite;
 }
 
-.pet-spark {
+.selected-stage-visual.locked img {
+  filter: grayscale(.72) saturate(.45) opacity(.68);
+}
+
+.stage-aura {
   position: absolute;
+  width: 112px;
+  height: 112px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 231, 151, .42), rgba(158, 126, 234, .15) 52%, transparent 72%);
+  filter: blur(7px);
+}
+
+.selected-stage-copy {
+  min-width: 0;
+  padding-left: 8px;
+}
+
+.stage-level {
+  color: #a084df;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.selected-stage-copy h3 {
+  margin-top: 3px;
+  color: #5a477f;
+  font-size: 20px;
+  font-weight: 830;
+}
+
+.selected-stage-copy > p {
+  min-height: 47px;
+  margin-top: 7px;
+  color: #84799c;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.growth-progress-copy {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  color: #765bd3;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.growth-progress-copy strong {
+  color: #29b995;
+}
+
+.growth-progress-track {
+  height: 7px;
+  margin-top: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(120, 91, 194, .1);
+}
+
+.growth-progress-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #9b7bf0, #6f52d8 62%, #35c5a2);
+  box-shadow: 0 0 8px rgba(121, 88, 220, .32);
+  transition: width .5s ease;
+}
+
+.selected-stage-copy small {
+  display: block;
+  margin-top: 6px;
+  color: #a098b2;
+  font-size: 8px;
+  line-height: 1.35;
+}
+
+.stage-gallery {
+  position: relative;
   z-index: 2;
-  color: #9b78e7;
-  font-size: 11px;
-  animation: petSpark 2.6s ease-in-out infinite;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 7px;
+  margin-top: 5px;
 }
 
-.spark-one {
-  top: 14px;
-  right: 12px;
+.stage-card {
+  min-width: 0;
+  padding: 6px 4px 7px;
+  border: 1px solid rgba(126, 100, 192, .08);
+  border-radius: 14px;
+  color: #776d90;
+  background: rgba(255,255,255,.54);
+  transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease;
 }
 
-.spark-two {
-  top: 42px;
-  left: 7px;
-  animation-delay: .8s;
+.stage-card.selected {
+  border-color: rgba(119, 83, 220, .45);
+  box-shadow: 0 7px 17px rgba(102, 72, 184, .13), inset 0 0 0 2px rgba(139, 106, 229, .08);
+  transform: translateY(-2px);
 }
 
-.share-mini {
+.stage-card.current {
+  color: #6f51d1;
+  background: linear-gradient(155deg, rgba(247,243,255,.95), rgba(233,225,255,.8));
+}
+
+.stage-card.locked {
+  color: #aaa3b8;
+}
+
+.stage-thumb {
+  position: relative;
+  display: block;
+  height: 68px;
+}
+
+.stage-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 5px rgba(65, 48, 101, .12));
+}
+
+.stage-card.locked .stage-thumb img {
+  filter: grayscale(.8) saturate(.3) opacity(.52);
+}
+
+.stage-lock,
+.stage-check {
   position: absolute;
-  z-index: 4;
-  top: 12px;
-  right: 12px;
-  color: #9a87cd;
-  font-size: 11px;
+  right: 1px;
+  bottom: 2px;
+  display: grid;
+  width: 19px;
+  height: 19px;
+  place-items: center;
+  border: 2px solid white;
+  border-radius: 50%;
+  color: white;
+  font-size: 8px;
+}
+
+.stage-lock {
+  background: #aaa2ba;
+}
+
+.stage-check {
+  background: linear-gradient(135deg, #8d6ce7, #55c7a8);
+}
+
+.stage-card > strong,
+.stage-card > small {
+  display: block;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stage-card > strong {
+  margin-top: 3px;
+  font-size: 10px;
+}
+
+.stage-card > small {
+  margin-top: 2px;
+  color: #aaa2b8;
+  font-size: 8px;
+}
+
+.evolution-note {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 11px;
+  padding: 9px 11px;
+  border-radius: 12px;
+  color: #756a8c;
+  background: rgba(121, 91, 205, .07);
+  font-size: 10px;
+}
+
+.evolution-note svg {
+  color: #f6b939;
+}
+
+.evolution-note b {
+  color: #7254d8;
 }
 
 .share-btn {
@@ -614,6 +1007,36 @@ onMounted(loadGrowth)
 
 .share-btn:active {
   transform: scale(.98);
+}
+
+.share-btn:disabled {
+  opacity: 0.65;
+}
+
+.growth-toast {
+  position: fixed;
+  z-index: 600;
+  left: 50%;
+  bottom: calc(var(--tab-height) + var(--safe-bottom) + 24px);
+  transform: translateX(-50%);
+  max-width: calc(100% - 40px);
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: rgba(20, 16, 40, 0.88);
+  color: #fff;
+  font-size: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+.toast-fade-enter-active,
+.toast-fade-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.toast-fade-enter-from,
+.toast-fade-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(8px);
 }
 
 @media (max-height: 760px) {
@@ -640,18 +1063,31 @@ onMounted(loadGrowth)
     height: 105px;
   }
 
-  .pet-growth-card {
-    min-height: 128px;
+  .evolution-card {
+    padding: 13px;
   }
 
-  .fox-wrap {
-    width: 136px;
-    height: 108px;
+  .evolution-hero {
+    min-height: 164px;
+  }
+
+  .selected-stage-visual {
+    height: 154px;
+  }
+
+  .stage-thumb {
+    height: 58px;
   }
 }
 
-@keyframes petSpark {
-  0%, 100% { opacity: .4; transform: scale(.8) rotate(0); }
-  50% { opacity: 1; transform: scale(1.15) rotate(20deg); }
+@keyframes stageFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .selected-stage-visual img {
+    animation: none;
+  }
 }
 </style>

@@ -273,7 +273,7 @@ onMounted(loadPage)
 
 <style scoped>
 .invite-page {
-  height: 100dvh;
+  height: 100%;
   display: flex;
   flex-direction: column;
   background: #7c6bcf;
@@ -293,7 +293,7 @@ onMounted(loadPage)
 }
 
 .invite-bg {
-  position: fixed;
+  position: absolute;
   inset: 0;
   z-index: 0;
   pointer-events: none;
@@ -706,12 +706,10 @@ onMounted(loadPage)
 }
 
 .invite-footer {
-  position: fixed;
-  left: 50%;
-  transform: translateX(-50%);
+  position: absolute;
+  left: 0;
+  right: 0;
   bottom: 0;
-  width: 100%;
-  max-width: var(--app-max-width, 430px);
   z-index: 5;
   padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
   background: linear-gradient(180deg, transparent, rgba(124, 108, 207, 0.72) 36%);
@@ -737,7 +735,7 @@ onMounted(loadPage)
 }
 
 .toast {
-  position: fixed;
+  position: absolute;
   left: 50%;
   bottom: calc(96px + env(safe-area-inset-bottom, 0px));
   transform: translateX(-50%);

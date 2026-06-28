@@ -16,6 +16,7 @@ import settingsRoutes from './routes/settings.js'
 import favoritesRoutes from './routes/favorites.js'
 import profileRoutes from './routes/profile.js'
 import leaderboardRoutes from './routes/leaderboard.js'
+import ttsRoutes from './routes/tts.js'
 
 dotenv.config()
 
@@ -47,6 +48,7 @@ app.use('/api/settings', settingsRoutes)
 app.use('/api/favorites', favoritesRoutes)
 app.use('/api/profile', profileRoutes)
 app.use('/api/leaderboard', leaderboardRoutes)
+app.use('/api/tts', ttsRoutes)
 
 app.use(notFound)
 app.use(errorHandler)

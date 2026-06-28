@@ -51,6 +51,12 @@ const routes = [
     meta: { hideTab: true },
   },
   {
+    path: '/study-room/video/members',
+    name: 'StudyRoomVideoMembers',
+    component: () => import('../views/StudyRoomVideoMembers.vue'),
+    meta: { hideTab: true },
+  },
+  {
     path: '/study-room/invite',
     name: 'StudyRoomInvite',
     component: () => import('../views/StudyRoomInvite.vue'),
@@ -78,6 +84,12 @@ const routes = [
     path: '/focus',
     name: 'Focus',
     component: () => import('../views/Focus.vue'),
+    meta: { hideTab: true },
+  },
+  {
+    path: '/pet/encyclopedia',
+    name: 'PetEncyclopedia',
+    component: () => import('../views/PetEncyclopedia.vue'),
     meta: { hideTab: true },
   },
   {

@@ -2,6 +2,8 @@ import { Router } from 'express'
 import pool from '../config/db.js'
 import { buildSoundList, DEFAULT_AMBIENT_KEY } from '../config/ambientSounds.js'
 import { resolveUserId } from '../utils/auth.js'
+import { buildVideoMembersList, getVideoOnlineCount } from '../utils/videoMembers.js'
+import videoFocusAnalysisRoutes from './videoFocusAnalysis.js'
 
 const router = Router()
 const DEFAULT_USER_ID = 1
@@ -866,8 +868,14 @@ async function buildVideoRoom(userId) {
   const [[userRow]] = await pool.query('SELECT name FROM users WHERE id = ?', [userId])
   const [[state]] = await pool.query(
     `SELECT mic_enabled, camera_enabled, camera_facing, beauty_filter, background_blur,
-            privacy_mode, screen_brightness, focus_remaining_sec
+            privacy_mode, screen_brightness, ai_focus_enabled, ai_alert_level, focus_remaining_sec
      FROM study_video_user_state WHERE user_id = ?`,
+    [userId],
+  )
+
+  const [[activeFocus]] = await pool.query(
+    `SELECT id, focus_score_avg FROM study_video_focus_sessions
+     WHERE user_id = ? AND ended_at IS NULL ORDER BY id DESC LIMIT 1`,
     [userId],
   )
   const [[profile]] = await pool.query(
@@ -881,10 +889,7 @@ async function buildVideoRoom(userId) {
     [roomCode],
   )
 
-  const [[onlineRow]] = await pool.query(
-    `SELECT COUNT(*) AS cnt FROM study_interact_sessions WHERE mode = 'video'`,
-  )
-  const onlineCount = Number(onlineRow?.cnt || 0) + tiles.length + 120
+  const onlineCount = await getVideoOnlineCount(pool, roomCode)
 
   const gridTiles = tiles.slice(0, 3).map(formatVideoTile)
   const moreCount = Math.max(0, onlineCount - gridTiles.length)
@@ -909,9 +914,15 @@ async function buildVideoRoom(userId) {
       backgroundBlur: Boolean(state.background_blur),
       privacyMode: Boolean(state.privacy_mode),
       screenBrightness: Boolean(state.screen_brightness),
+      aiFocusEnabled: state.ai_focus_enabled == null ? true : Boolean(state.ai_focus_enabled),
+      aiAlertLevel: state.ai_alert_level || 'standard',
+      focusScore: activeFocus?.focus_score_avg ?? 100,
+      focusSessionId: activeFocus?.id ?? null,
     },
   }
 }
+
+router.use('/video/focus-analysis', videoFocusAnalysisRoutes)
 
 router.get('/video', async (req, res, next) => {
   try {
@@ -929,6 +940,30 @@ router.get('/video', async (req, res, next) => {
   }
 })
 
+router.get('/video/members', async (req, res, next) => {
+  try {
+    const userId = resolveUserId(req)
+    const [[session]] = await pool.query(
+      'SELECT mode FROM study_interact_sessions WHERE user_id = ?',
+      [userId],
+    )
+    if (session?.mode !== 'video') {
+      return res.status(403).json({ success: false, message: '请先进入视频自习' })
+    }
+
+    const roomCode = String(req.query.roomCode || 'SR-DEFAULT')
+    const data = await buildVideoMembersList(pool, userId, roomCode, {
+      page: req.query.page,
+      pageSize: req.query.pageSize,
+      q: req.query.q,
+    })
+
+    res.json({ success: true, data })
+  } catch (err) {
+    next(err)
+  }
+})
+
 router.patch('/video/settings', async (req, res, next) => {
   try {
     const userId = resolveUserId(req)
@@ -941,6 +976,7 @@ router.patch('/video/settings', async (req, res, next) => {
       backgroundBlur: 'background_blur',
       privacyMode: 'privacy_mode',
       screenBrightness: 'screen_brightness',
+      aiFocusEnabled: 'ai_focus_enabled',
     }
 
     const fields = []
@@ -949,6 +985,14 @@ router.patch('/video/settings', async (req, res, next) => {
       if (req.body[key] === undefined) continue
       fields.push(`${column} = ?`)
       values.push(req.body[key] ? 1 : 0)
+    }
+
+    if (req.body.aiAlertLevel !== undefined) {
+      const level = String(req.body.aiAlertLevel)
+      if (['light', 'standard', 'report'].includes(level)) {
+        fields.push('ai_alert_level = ?')
+        values.push(level)
+      }
     }
 
     if (!fields.length) {

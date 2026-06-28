@@ -1,50 +1,55 @@
 import { Router } from 'express'
 import pool from '../config/db.js'
-import { formatMinutes, formatDateLabel } from '../utils/format.js'
+import { resolveUserId } from '../utils/auth.js'
+import { buildGrowthReport } from '../utils/growthReport.js'
+import { buildGrowthSharePayload, resolveGrowthShareAction } from '../utils/growthShare.js'
+import { buildPetNurturePage } from '../utils/petNurture.js'
 
 const router = Router()
-const DEFAULT_USER_ID = 1
 
 router.get('/', async (req, res, next) => {
   try {
-    const userId = Number(req.query.userId) || DEFAULT_USER_ID
-
-    const [users] = await pool.query(
-      'SELECT streak_days, focus_week_minutes, level, exp FROM users WHERE id = ?',
-      [userId],
-    )
-    if (!users.length) {
+    const userId = resolveUserId(req)
+    const period = req.query.period === 'month' ? 'month' : 'week'
+    const data = await buildGrowthReport(pool, userId, period)
+    if (!data) {
       return res.status(404).json({ success: false, message: '用户不存在' })
     }
-    const user = users[0]
+    res.json({ success: true, data })
+  } catch (err) {
+    next(err)
+  }
+})
 
-    const [records] = await pool.query(
-      `SELECT record_date, minutes FROM focus_records
-       WHERE user_id = ? AND record_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-       ORDER BY record_date`,
-      [userId],
+router.post('/share', async (req, res, next) => {
+  try {
+    const userId = resolveUserId(req)
+    const period = req.body.period === 'month' ? 'month' : 'week'
+    const action = String(req.body.action || 'preview')
+    const payload = await buildGrowthSharePayload(
+      pool,
+      userId,
+      period,
+      buildGrowthReport,
+      buildPetNurturePage,
     )
 
-    const chartData = records.map((r) => ({
-      day: formatDateLabel(r.record_date),
-      value: Math.round((r.minutes / 60) * 100) / 100,
-    }))
+    if (!payload) {
+      return res.status(404).json({ success: false, message: '用户不存在' })
+    }
 
-    const weekTotalHours = Math.round((user.focus_week_minutes / 60) * 100) / 100
+    if (action === 'preview') {
+      return res.json({ success: true, data: payload })
+    }
+
+    const result = resolveGrowthShareAction(action, payload)
+    if (!result) {
+      return res.status(400).json({ success: false, message: '无效的分享操作' })
+    }
 
     res.json({
       success: true,
-      data: {
-        weekLabel: '本周报告',
-        focusWeek: formatMinutes(user.focus_week_minutes),
-        streakDays: user.streak_days,
-        weekChangePercent: 25,
-        weekTotalHours,
-        chartData,
-        level: user.level,
-        weekExpGain: 850,
-        beatPercent: 92,
-      },
+      data: { ...payload, ...result },
     })
   } catch (err) {
     next(err)
