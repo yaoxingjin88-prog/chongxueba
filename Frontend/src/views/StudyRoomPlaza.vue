@@ -3,8 +3,18 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { FontAwesomeIcon } from '../plugins/fontawesome'
 import { api } from '../api'
+import { useStudyRoomJoin } from '../composables/useStudyRoomJoin'
 
 const router = useRouter()
+const {
+  joining,
+  passwordRoom,
+  requestJoin,
+  submitPassword,
+  cancelPassword,
+} = useStudyRoomJoin()
+
+const passwordInput = ref('')
 
 const categories = ref([])
 const filters = ref([])
@@ -109,29 +119,23 @@ async function onSortChange(key) {
 }
 
 async function joinRoom(room) {
-  try {
-    const data = await api.joinStudyRoom(room.id)
-    alert(data.message || `已加入「${room.name}」`)
-    router.push('/study-room')
-  } catch (err) {
-    alert(err.message)
-  }
+  await requestJoin(room)
+}
+
+async function confirmPasswordJoin() {
+  const pwd = passwordInput.value.trim()
+  if (!pwd) return
+  await submitPassword(pwd)
+  passwordInput.value = ''
+}
+
+function closePasswordModal() {
+  passwordInput.value = ''
+  cancelPassword()
 }
 
 async function createRoom() {
-  const name = window.prompt('请输入自习室名称', '我的星光自习室')
-  if (!name?.trim()) return
-
-  try {
-    const data = await api.createStudyRoom({
-      name: name.trim(),
-      category: activeCategory.value,
-    })
-    alert(data.message || '创建成功')
-    await loadPlaza()
-  } catch (err) {
-    alert(err.message)
-  }
+  router.push('/study-room/create')
 }
 
 function pauseCarousel() {
@@ -403,7 +407,14 @@ onBeforeUnmount(() => {
                 />
                 <span v-if="room.extraMembers > 0" class="avatar-more">+{{ room.extraMembers }}</span>
               </div>
-              <button class="join-btn" type="button" @click="joinRoom(room)">加入房间</button>
+              <button
+                class="join-btn"
+                type="button"
+                :disabled="joining"
+                @click="joinRoom(room)"
+              >
+                加入房间
+              </button>
             </div>
           </div>
         </article>
@@ -416,6 +427,27 @@ onBeforeUnmount(() => {
       </span>
       创建自习室
     </button>
+
+    <div v-if="passwordRoom" class="pwd-overlay mobile-overlay" @click.self="closePasswordModal">
+      <div class="pwd-sheet">
+        <h3>输入房间密码</h3>
+        <p class="pwd-hint">「{{ passwordRoom.name }}」为私密房间</p>
+        <input
+          v-model="passwordInput"
+          type="password"
+          class="pwd-input"
+          maxlength="8"
+          placeholder="4-8 位密码"
+          @keyup.enter="confirmPasswordJoin"
+        >
+        <div class="pwd-actions">
+          <button type="button" class="pwd-cancel" @click="closePasswordModal">取消</button>
+          <button type="button" class="pwd-confirm" :disabled="joining" @click="confirmPasswordJoin">
+            加入
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -1075,5 +1107,74 @@ onBeforeUnmount(() => {
   color: var(--text-secondary);
   font-size: 13px;
   text-align: center;
+}
+
+.pwd-overlay {
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.pwd-sheet {
+  width: 100%;
+  background: #fff;
+  border-radius: 20px 20px 0 0;
+  padding: 20px 20px calc(var(--safe-bottom) + 16px);
+}
+
+.pwd-sheet h3 {
+  font-size: 17px;
+  font-weight: 700;
+  color: #4a3b8c;
+  margin-bottom: 6px;
+}
+
+.pwd-hint {
+  font-size: 13px;
+  color: #8b7fb8;
+  margin-bottom: 14px;
+}
+
+.pwd-input {
+  width: 100%;
+  border: none;
+  background: #f5f3ff;
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 15px;
+  margin-bottom: 14px;
+  outline: none;
+}
+
+.pwd-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.pwd-cancel,
+.pwd-confirm {
+  flex: 1;
+  border: none;
+  border-radius: 12px;
+  padding: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pwd-cancel {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.pwd-confirm {
+  background: linear-gradient(135deg, #a855f7, #7c3aed);
+  color: #fff;
+}
+
+.pwd-confirm:disabled {
+  opacity: 0.55;
 }
 </style>

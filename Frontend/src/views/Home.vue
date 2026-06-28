@@ -2,16 +2,28 @@
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
+import { api } from '../api'
 import { avatarUrl } from '../utils/avatar'
 import { speakPet, stopPetSpeech } from '../utils/petSpeech'
+import { resolveEquippedDressUpItems } from '../utils/petDressUpVisuals.js'
 import homeFoxIsland from '../assets/home-fox-island.png'
 import homeSkyBackground from '../assets/home-sky-background.png'
 
 const router = useRouter()
 const user = useUserStore()
 const foxGreeting = ref('')
+const equippedDressUp = ref([])
+const coinPanelOpen = ref(false)
+const walletLoading = ref(false)
+const walletTxs = ref([])
 let greetingTimer
 let welcomeTimer
+
+const coinShortcuts = [
+  { icon: 'clipboard-list', label: '任务中心', path: '/tasks', color: '#f97316' },
+  { icon: 'calendar-check', label: '每日打卡', path: '/checkin', color: '#34d399' },
+  { icon: 'shirt', label: '商城', path: '/mall', color: '#ca8a04' },
+]
 
 const clickGreetings = [
   '今天也一起加油吧！',
@@ -117,17 +129,61 @@ function formatCoins(n) {
   return n.toLocaleString('zh-CN')
 }
 
+async function loadWallet() {
+  walletLoading.value = true
+  try {
+    const data = await api.getWallet()
+    user.coins = data.coins
+    user.gems = data.gems
+    walletTxs.value = data.transactions || []
+  } catch {
+    walletTxs.value = []
+  } finally {
+    walletLoading.value = false
+  }
+}
+
+function toggleCoinPanel() {
+  coinPanelOpen.value = !coinPanelOpen.value
+  if (coinPanelOpen.value) loadWallet()
+}
+
+function closeCoinPanel() {
+  coinPanelOpen.value = false
+}
+
+function goCoinShortcut(path) {
+  closeCoinPanel()
+  router.push(path)
+}
+
+function onDocumentClick() {
+  closeCoinPanel()
+}
+
+async function loadEquippedDressUp() {
+  try {
+    const items = await api.getDressUpItems()
+    equippedDressUp.value = resolveEquippedDressUpItems(items)
+  } catch {
+    equippedDressUp.value = []
+  }
+}
+
 onMounted(async () => {
   if (!user.loaded) {
     try { await user.fetchUser() } catch { /* guest fallback */ }
   }
+  loadEquippedDressUp()
   welcomeTimer = window.setTimeout(maybeWelcomeHome, 700)
+  document.addEventListener('click', onDocumentClick)
 })
 
 onBeforeUnmount(() => {
   stopPetSpeech()
   window.clearTimeout(greetingTimer)
   window.clearTimeout(welcomeTimer)
+  document.removeEventListener('click', onDocumentClick)
 })
 </script>
 
@@ -159,10 +215,74 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="right-block">
-        <div class="coin-pill">
-          <font-awesome-icon icon="coins" class="coin-icon" />
-          <span>{{ formatCoins(user.coins) }}</span>
-          <font-awesome-icon icon="chevron-down" class="chevron-sm" />
+        <div class="coin-wrap">
+          <button
+            type="button"
+            class="coin-pill"
+            :class="{ open: coinPanelOpen }"
+            @click.stop="toggleCoinPanel"
+          >
+            <font-awesome-icon icon="coins" class="coin-icon" />
+            <span>{{ formatCoins(user.coins) }}</span>
+            <font-awesome-icon icon="chevron-down" class="chevron-sm" />
+          </button>
+
+          <Transition name="coin-drop">
+            <div v-if="coinPanelOpen" class="coin-panel" @click.stop>
+              <div class="coin-panel-head">
+                <span class="coin-panel-title">学豆钱包</span>
+              </div>
+              <div class="coin-panel-balance">
+                <div class="balance-item">
+                  <font-awesome-icon icon="coins" class="balance-icon coins" />
+                  <div class="balance-meta">
+                    <span class="balance-label">学豆</span>
+                    <strong>{{ formatCoins(user.coins) }}</strong>
+                  </div>
+                </div>
+                <div class="balance-divider" />
+                <div class="balance-item">
+                  <font-awesome-icon icon="gem" class="balance-icon gems" />
+                  <div class="balance-meta">
+                    <span class="balance-label">钻石</span>
+                    <strong>{{ formatCoins(user.gems) }}</strong>
+                  </div>
+                </div>
+              </div>
+
+              <div class="coin-panel-section">
+                <span class="section-label">最近明细</span>
+                <div v-if="walletLoading" class="coin-panel-empty">加载中...</div>
+                <div v-else-if="!walletTxs.length" class="coin-panel-empty">
+                  暂无明细，完成任务赚取学豆吧
+                </div>
+                <ul v-else class="tx-list">
+                  <li v-for="(tx, i) in walletTxs" :key="i" class="tx-row">
+                    <span class="tx-amount" :class="tx.amount >= 0 ? 'plus' : 'minus'">
+                      {{ tx.amount >= 0 ? '+' : '' }}{{ tx.amount }}
+                    </span>
+                    <span class="tx-label">{{ tx.label }}</span>
+                    <span class="tx-time">{{ tx.time }}</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div class="coin-shortcuts">
+                <button
+                  v-for="item in coinShortcuts"
+                  :key="item.path"
+                  type="button"
+                  class="shortcut-btn"
+                  @click="goCoinShortcut(item.path)"
+                >
+                  <span class="shortcut-icon" :style="{ color: item.color }">
+                    <font-awesome-icon :icon="item.icon" />
+                  </span>
+                  <span>{{ item.label }}</span>
+                </button>
+              </div>
+            </div>
+          </Transition>
         </div>
         <div class="streak-card">
           <span class="streak-label">连续学习</span>
@@ -179,7 +299,25 @@ onBeforeUnmount(() => {
             <span v-if="foxGreeting" class="fox-greeting">{{ foxGreeting }}</span>
           </Transition>
           <span class="fox-glow" aria-hidden="true" />
-          <img :src="homeFoxIsland" alt="坐在浮岛上的小狐狸" class="fox-model">
+          <div class="fox-wrap">
+            <img :src="homeFoxIsland" alt="坐在浮岛上的小狐狸" class="fox-model">
+            <template v-for="item in equippedDressUp" :key="item.id">
+              <img
+                v-if="item.asset"
+                :src="item.asset"
+                :alt="item.name"
+                class="fox-accessory"
+                :class="[`accessory-${item.slot}`, `accessory-id-${item.id}`]"
+              >
+              <span
+                v-else
+                class="fox-accessory fox-accessory-fallback"
+                :class="`accessory-${item.slot}`"
+              >
+                {{ item.image }}
+              </span>
+            </template>
+          </div>
           <span class="fox-shadow" aria-hidden="true" />
         </button>
       </section>
@@ -350,6 +488,12 @@ onBeforeUnmount(() => {
   flex-direction: column;
   align-items: flex-end;
   gap: 8px;
+  position: relative;
+  z-index: 30;
+}
+
+.coin-wrap {
+  position: relative;
 }
 
 .coin-pill {
@@ -363,6 +507,13 @@ onBeforeUnmount(() => {
   font-weight: 700;
   color: #1f2937;
   box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  cursor: pointer;
+  transition: box-shadow 0.2s, background 0.2s;
+}
+
+.coin-pill.open {
+  background: #fff;
+  box-shadow: 0 4px 18px rgba(91, 33, 182, 0.15);
 }
 
 .coin-icon {
@@ -373,6 +524,189 @@ onBeforeUnmount(() => {
 .chevron-sm {
   font-size: 9px;
   color: #9ca3af;
+  transition: transform 0.2s;
+}
+
+.coin-pill.open .chevron-sm {
+  transform: rotate(180deg);
+}
+
+.coin-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 260px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.97);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 18px;
+  box-shadow: 0 12px 40px rgba(76, 29, 149, 0.18);
+}
+
+.coin-panel-head {
+  margin-bottom: 12px;
+}
+
+.coin-panel-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #5b21b6;
+}
+
+.coin-panel-balance {
+  display: flex;
+  align-items: center;
+  padding: 12px;
+  background: linear-gradient(135deg, #faf5ff 0%, #fef3c7 100%);
+  border-radius: 14px;
+  margin-bottom: 14px;
+}
+
+.balance-item {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.balance-divider {
+  width: 1px;
+  height: 32px;
+  background: rgba(91, 33, 182, 0.12);
+  margin: 0 8px;
+}
+
+.balance-icon {
+  font-size: 18px;
+}
+
+.balance-icon.coins { color: #f59e0b; }
+.balance-icon.gems { color: #a78bfa; }
+
+.balance-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.balance-label {
+  font-size: 10px;
+  color: #71717a;
+}
+
+.balance-meta strong {
+  font-size: 16px;
+  font-weight: 800;
+  color: #27272a;
+  line-height: 1.1;
+}
+
+.coin-panel-section {
+  margin-bottom: 12px;
+}
+
+.section-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: #a1a1aa;
+  margin-bottom: 8px;
+}
+
+.coin-panel-empty {
+  font-size: 12px;
+  color: #a1a1aa;
+  text-align: center;
+  padding: 16px 8px;
+  line-height: 1.5;
+}
+
+.tx-list {
+  list-style: none;
+  max-height: 168px;
+  overflow-y: auto;
+}
+
+.tx-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid #f4f4f5;
+  font-size: 12px;
+}
+
+.tx-row:last-child {
+  border-bottom: none;
+}
+
+.tx-amount {
+  font-weight: 800;
+  min-width: 42px;
+}
+
+.tx-amount.plus { color: #16a34a; }
+.tx-amount.minus { color: #ef4444; }
+
+.tx-label {
+  color: #3f3f46;
+  font-weight: 500;
+}
+
+.tx-time {
+  color: #a1a1aa;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.coin-shortcuts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  padding-top: 4px;
+  border-top: 1px solid #f4f4f5;
+}
+
+.shortcut-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 4px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #52525b;
+  transition: background 0.15s;
+}
+
+.shortcut-btn:active {
+  background: #f4f4f5;
+}
+
+.shortcut-icon {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fafafa;
+  border-radius: 10px;
+  font-size: 14px;
+}
+
+.coin-drop-enter-active,
+.coin-drop-leave-active {
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.coin-drop-enter-from,
+.coin-drop-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
 }
 
 .streak-card {
@@ -437,26 +771,104 @@ onBeforeUnmount(() => {
   isolation: isolate;
 }
 
-.fox-model {
+.fox-wrap {
   position: relative;
   z-index: 3;
-  display: block;
   width: min(76vw, 292px);
   max-width: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  transform-origin: 50% 72%;
+  animation: fox-breathe 4.8s ease-in-out infinite;
+  transition: transform .24s cubic-bezier(.2, .8, .2, 1);
+}
+
+.fox-model {
+  position: relative;
+  z-index: 2;
+  display: block;
+  width: 100%;
   max-height: 100%;
   object-fit: contain;
   object-position: center bottom;
   filter:
     drop-shadow(0 14px 16px rgba(49, 51, 112, .22))
     drop-shadow(0 3px 4px rgba(255, 255, 255, .24));
-  transform-origin: 50% 72%;
-  animation: fox-breathe 4.8s ease-in-out infinite;
-  transition: transform .24s cubic-bezier(.2, .8, .2, 1), filter .24s ease;
+  transition: filter .24s ease;
+}
+
+.fox-scene:active .fox-wrap {
+  transform: scale(.975) translateY(2px);
 }
 
 .fox-scene:active .fox-model {
-  transform: scale(.975) translateY(2px);
   filter: drop-shadow(0 9px 10px rgba(49, 51, 112, .18));
+}
+
+.fox-accessory {
+  position: absolute;
+  pointer-events: none;
+  display: block;
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 8px rgba(30, 16, 70, 0.28));
+}
+
+.fox-accessory-fallback {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.accessory-back { z-index: 1; }
+
+.accessory-head,
+.accessory-face,
+.accessory-neck,
+.accessory-body,
+.accessory-prop,
+.accessory-effect {
+  z-index: 4;
+}
+
+.accessory-id-1 {
+  top: 21%;
+  left: 1%;
+  width: 98%;
+}
+
+.accessory-id-2 {
+  top: -3%;
+  left: 21%;
+  width: 58%;
+  transform: rotate(-2deg);
+}
+
+.accessory-id-3 {
+  top: 18%;
+  left: 27%;
+  width: 46%;
+}
+
+.accessory-id-4 {
+  top: 1%;
+  left: 21%;
+  width: 58%;
+}
+
+.fox-accessory-fallback.accessory-body,
+.fox-accessory-fallback.accessory-neck {
+  top: 39%;
+  left: 50%;
+  z-index: 4;
+  transform: translateX(-50%);
+}
+
+.fox-accessory-fallback.accessory-prop,
+.fox-accessory-fallback.accessory-effect {
+  right: 2%;
+  bottom: 28%;
+  z-index: 4;
 }
 
 .fox-glow {
@@ -708,7 +1120,7 @@ onBeforeUnmount(() => {
     min-height: 166px;
   }
 
-  .fox-model {
+  .fox-wrap {
     width: min(62vw, 232px);
   }
 
@@ -745,7 +1157,7 @@ onBeforeUnmount(() => {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .fox-model,
+  .fox-wrap,
   .fox-glow {
     animation: none;
   }

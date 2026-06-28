@@ -29,10 +29,30 @@ export const api = {
   wechatLogin: () => request('/auth/wechat', { method: 'POST', body: '{}' }),
   getCurrentUser: () => request('/auth/me'),
   getUser: (id = 1) => request(`/user/${id}`),
+  getWallet: () => request('/user/wallet'),
   getTasks: (type = 'daily') => request(`/tasks?type=${type}`),
+  getTaskDetail: (id) => request(`/tasks/${id}`),
   completeTask: (id) => request(`/tasks/${id}/complete`, { method: 'PATCH', body: '{}' }),
+  getTaskHistory: (filter = 'all') => request(`/tasks/history?filter=${filter}`),
+  getActivityChests: () => request('/tasks/activity/chests'),
+  claimActivityChest: (tier) => request(`/tasks/activity/chests/${tier}/claim`, { method: 'POST', body: '{}' }),
+  getCheckInItems: () => request('/checkin/items'),
+  checkIn: (itemId) => request('/checkin', { method: 'POST', body: JSON.stringify({ itemId }) }),
+  getCheckInCalendar: (month) => request(`/checkin/calendar?month=${month}`),
   getMallItems: (category = 0) => request(`/mall/items?category=${category}`),
+  searchMallItems: (q) => request(`/mall/items/search?q=${encodeURIComponent(q)}`),
+  getMallFeatured: () => request('/mall/items/featured'),
+  getMallHot: () => request('/mall/items/hot'),
+  getMallItemDetail: (id) => request(`/mall/items/${id}`),
   purchaseItem: (itemId) => request('/mall/purchase', { method: 'POST', body: JSON.stringify({ itemId }) }),
+  getCart: () => request('/mall/cart'),
+  addToCart: (itemId, quantity = 1) => request('/mall/cart/add', { method: 'POST', body: JSON.stringify({ itemId, quantity }) }),
+  updateCartItem: (cartId, quantity) => request(`/mall/cart/${cartId}`, { method: 'PATCH', body: JSON.stringify({ quantity }) }),
+  removeCartItem: (cartId) => request(`/mall/cart/${cartId}`, { method: 'DELETE' }),
+  createOrder: (items, address) => request('/mall/orders', { method: 'POST', body: JSON.stringify({ items, address }) }),
+  getOrders: (status) => request(`/mall/orders${status ? `?status=${status}` : ''}`),
+  getDressUpItems: () => request('/mall/dress-up/items'),
+  saveOutfit: (items) => request('/mall/dress-up/save', { method: 'POST', body: JSON.stringify({ items }) }),
   getGrowth: (period = 'week') => request(`/growth?period=${period}`),
   getGrowthShare: (period = 'week') => request('/growth/share', {
     method: 'POST',
@@ -44,6 +64,7 @@ export const api = {
   }),
   getAchievements: () => request('/achievements'),
   getPet: () => request('/pet'),
+  getPetProfile: () => request('/pet/profile'),
   feedPet: () => request('/pet/feed', { method: 'POST', body: '{}' }),
   petAction: (type) => request('/pet/action', {
     method: 'POST',
@@ -71,6 +92,7 @@ export const api = {
   getStudyRoom: () => request('/study-room'),
   getStudyRoomPlaza: (category = 'recommend', sort = 'latest') =>
     request(`/study-room/plaza?category=${encodeURIComponent(category)}&sort=${encodeURIComponent(sort)}`),
+  getStudyRoomCreatePage: () => request('/study-room/create-page'),
   createStudyRoom: (payload) =>
     request('/study-room/plaza/create', {
       method: 'POST',
@@ -85,7 +107,11 @@ export const api = {
       body: JSON.stringify({ keyword, searchType }),
     }),
   clearStudySearchHistory: () => request('/study-room/search-history', { method: 'DELETE' }),
-  joinStudyRoom: (roomId) => request(`/study-room/rooms/${roomId}/join`, { method: 'POST', body: '{}' }),
+  joinStudyRoom: (roomId, payload = {}) =>
+    request(`/study-room/rooms/${roomId}/join`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
   greetStudyBuddy: (buddyId) => request(`/study-room/buddies/${buddyId}/greet`, { method: 'POST', body: '{}' }),
   inviteStudyBuddy: (buddyId) => request(`/study-room/buddies/${buddyId}/invite`, { method: 'POST', body: '{}' }),
   saveAmbientSound: (key) => request('/study-room/ambient-sound', {
@@ -167,6 +193,11 @@ export const api = {
   getProfile: () => request('/profile'),
   updateProfile: (payload) => request('/profile', {
     method: 'PATCH',
+    body: JSON.stringify(payload),
+  }),
+  getVipInfo: () => request('/vip'),
+  subscribeVip: (payload) => request('/vip/subscribe', {
+    method: 'POST',
     body: JSON.stringify(payload),
   }),
   getLeaderboard: (board = 'focus', period = 'today') =>

@@ -100,6 +100,29 @@ button {
     radial-gradient(1px 1px at 45% 75%, rgba(255,255,255,0.6) 0%, transparent 100%);
 }
 
+/* 商城星空背景 */
+.mall-sky-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+  background: url('/images/mall-sky-bg.png') center top / cover no-repeat;
+  background-color: #1a0a3e;
+}
+
+.mall-sky-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(26, 10, 62, 0.06) 0%,
+    rgba(45, 27, 105, 0.08) 45%,
+    rgba(30, 16, 70, 0.12) 100%
+  );
+}
+
 .glass-card {
   background: var(--gradient-card);
   backdrop-filter: blur(12px);

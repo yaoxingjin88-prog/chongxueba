@@ -34,6 +34,10 @@ const menuItems = [
 const medalThemes = ['theme-gold', 'theme-pink', 'theme-blue', 'theme-purple']
 const logoutConfirmOpen = ref(false)
 
+function goVip() {
+  router.push('/vip')
+}
+
 async function loadProfileMeta() {
   try {
     const data = await api.getProfile()
@@ -47,14 +51,37 @@ async function loadProfileMeta() {
   }
 }
 
+function resolveMedalTheme(medal, index) {
+  if (medal?.theme?.startsWith?.('theme-')) return medal.theme
+  return medalThemes[index % medalThemes.length]
+}
+
 async function loadAchievements() {
   try {
     const data = await api.getAchievements()
-    user.medals = data.medals
-    user.totalMedals = data.totalMedals
-    if (data.recentMedals?.length) {
+    if (typeof data.earnedCount === 'number') {
+      user.medals = data.earnedCount
+    } else if (Array.isArray(data.medals)) {
+      user.medals = data.medals.filter((m) => m.earned).length
+    }
+    if (typeof data.totalMedals === 'number') {
+      user.totalMedals = data.totalMedals
+    } else if (Array.isArray(data.medals)) {
+      user.totalMedals = data.medals.length
+    }
+
+    const earned = Array.isArray(data.medals)
+      ? data.medals.filter((m) => m.earned).slice(0, 4)
+      : []
+    if (earned.length) {
+      previewMedals.value = earned.map((medal, i) => ({
+        name: medal.name,
+        theme: resolveMedalTheme(medal, i),
+      }))
+    } else if (data.recentMedals?.length) {
       previewMedals.value = data.recentMedals.slice(0, 4).map((medal, i) => ({
-        theme: medal.theme || medalThemes[i],
+        name: medal.name,
+        theme: resolveMedalTheme(medal, i),
       }))
     }
   } catch {
@@ -109,13 +136,30 @@ onMounted(async () => {
           <p class="user-level">Lv.{{ user.level }}</p>
         </div>
 
-        <div v-if="user.vip" class="vip-card">
+        <button
+          v-if="user.vip"
+          type="button"
+          class="vip-card"
+          @click="goVip"
+        >
           <font-awesome-icon icon="crown" class="vip-crown" />
           <div class="vip-text">
             <span class="vip-title">VIP会员</span>
-            <span class="vip-expire">2024.12.31到期</span>
+            <span class="vip-expire">{{ user.vipExpireLabel || '查看详情' }}</span>
           </div>
-        </div>
+        </button>
+        <button
+          v-else
+          type="button"
+          class="vip-card vip-card--cta"
+          @click="goVip"
+        >
+          <font-awesome-icon icon="crown" class="vip-crown" />
+          <div class="vip-text">
+            <span class="vip-title">开通 VIP</span>
+            <span class="vip-expire">解锁专属特权</span>
+          </div>
+        </button>
       </section>
 
       <section class="stats-card panel-card">
@@ -136,7 +180,7 @@ onMounted(async () => {
         <div class="medal-row">
           <div
             v-for="(medal, i) in previewMedals"
-            :key="i"
+            :key="medal.name || i"
             class="medal-badge"
             :class="medal.theme"
           >
@@ -331,6 +375,12 @@ onMounted(async () => {
   border: 1px solid rgba(255, 255, 255, 0.35);
   border-radius: 12px;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  text-align: left;
+}
+
+.vip-card--cta {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.12) 100%);
 }
 
 .vip-crown {

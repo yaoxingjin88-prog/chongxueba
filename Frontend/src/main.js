@@ -5,6 +5,7 @@ import router from './router'
 import { FontAwesomeIcon } from './plugins/fontawesome'
 import { useUserStore } from './stores/user'
 import './styles/global.css'
+import './styles/task-theme.css'
 
 const app = createApp(App)
 const pinia = createPinia()

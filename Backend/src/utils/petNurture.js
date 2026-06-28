@@ -125,6 +125,29 @@ function buildGrowthRewards(pet, userRow) {
   }
 }
 
+const CATEGORY_TO_INT = { skin: 1, furniture: 2, prop: 3, limited: 4, all: 0 }
+
+async function getEquippedOutfit(pool, userId) {
+  try {
+    const [rows] = await pool.query(
+      `SELECT m.icon AS image, m.name, m.category
+       FROM mall_outfit_items oi
+       JOIN mall_items m ON m.id = oi.item_id
+       WHERE oi.outfit_id = (
+         SELECT id FROM mall_outfits WHERE user_id = ? AND name = 'default' LIMIT 1
+       )`,
+      [userId],
+    )
+    return rows.map((row) => ({
+      name: row.name,
+      image: row.image,
+      category: CATEGORY_TO_INT[row.category] ?? 0,
+    }))
+  } catch {
+    return []
+  }
+}
+
 export async function buildPetNurturePage(pool, userId) {
   const [[pet]] = await pool.query(
     `SELECT p.*, u.exp AS user_exp, u.exp_max AS user_exp_max, u.coins, u.gems,
@@ -189,6 +212,7 @@ export async function buildPetNurturePage(pool, userId) {
       label: allTasksDone ? '今日奖励已就绪' : '全部完成可获得',
     },
     growthRewards: buildGrowthRewards(pet, pet),
+    equippedOutfit: await getEquippedOutfit(pool, userId),
     coins: pet.coins,
     gems: pet.gems,
     fullness: pet.fullness,

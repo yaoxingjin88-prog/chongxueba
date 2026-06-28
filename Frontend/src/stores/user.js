@@ -22,6 +22,8 @@ export const useUserStore = defineStore('user', () => {
   const medals = ref(18)
   const totalMedals = ref(45)
   const vip = ref(true)
+  const vipExpireLabel = ref(null)
+  const vipDaysLeft = ref(0)
   const ambientSound = ref('rain')
   const avatarSeed = ref('moon-night')
   const avatarUrl = ref('')
@@ -50,6 +52,8 @@ export const useUserStore = defineStore('user', () => {
     medals.value = data.medals
     totalMedals.value = data.totalMedals
     vip.value = data.vip
+    vipExpireLabel.value = data.vipExpireLabel || null
+    vipDaysLeft.value = data.vipDaysLeft ?? 0
     ambientSound.value = data.ambientSound || 'rain'
     avatarSeed.value = data.avatarSeed || 'moon-night'
     avatarUrl.value = data.avatarUrl || ''
@@ -113,7 +117,7 @@ export const useUserStore = defineStore('user', () => {
   return {
     name, level, exp, expMax, expPercent, coins, gems,
     streakDays, focusToday, focusWeek, focusTotalHours, mood, fullness, focus,
-    petName, petLevel, medals, totalMedals, vip, ambientSound, avatarSeed, avatarUrl,
+    petName, petLevel, medals, totalMedals, vip, vipExpireLabel, vipDaysLeft, ambientSound, avatarSeed, avatarUrl,
     token, isAuthenticated, loaded, loading, fetchUser, refresh, applyUser,
     login, wechatLogin, logout,
   }

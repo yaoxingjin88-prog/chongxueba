@@ -39,6 +39,12 @@ const routes = [
     meta: { hideTab: true },
   },
   {
+    path: '/study-room/create',
+    name: 'StudyRoomCreate',
+    component: () => import('../views/StudyRoomCreate.vue'),
+    meta: { hideTab: true },
+  },
+  {
     path: '/study-room/voice',
     name: 'StudyRoomVoice',
     component: () => import('../views/StudyRoomVoice.vue'),
@@ -75,10 +81,52 @@ const routes = [
     meta: { tab: 'mall' },
   },
   {
+    path: '/mall/categories',
+    name: 'MallCategories',
+    component: () => import('../views/MallCategories.vue'),
+    meta: { tab: 'mall' },
+  },
+  {
+    path: '/mall/product/:id',
+    name: 'MallProduct',
+    component: () => import('../views/MallProduct.vue'),
+    meta: { hideTab: true },
+  },
+  {
+    path: '/mall/cart',
+    name: 'MallCart',
+    component: () => import('../views/MallCart.vue'),
+    meta: { hideTab: true },
+  },
+  {
+    path: '/mall/checkout',
+    name: 'MallCheckout',
+    component: () => import('../views/MallCheckout.vue'),
+    meta: { hideTab: true },
+  },
+  {
+    path: '/mall/dress-up',
+    name: 'MallDressUp',
+    component: () => import('../views/MallDressUp.vue'),
+    meta: { hideTab: true },
+  },
+  {
+    path: '/mall/orders',
+    name: 'MallOrders',
+    component: () => import('../views/MallOrders.vue'),
+    meta: { hideTab: true },
+  },
+  {
     path: '/profile',
     name: 'Profile',
     component: () => import('../views/Profile.vue'),
     meta: { tab: 'profile' },
+  },
+  {
+    path: '/vip',
+    name: 'Vip',
+    component: () => import('../views/Vip.vue'),
+    meta: { hideTab: true },
   },
   {
     path: '/focus',
@@ -93,6 +141,18 @@ const routes = [
     meta: { hideTab: true },
   },
   {
+    path: '/pet/profile',
+    name: 'PetProfile',
+    component: () => import('../views/PetProfile.vue'),
+    meta: { hideTab: true },
+  },
+  {
+    path: '/pet/dress-up',
+    name: 'PetDressUp',
+    component: () => import('../views/PetDressUp.vue'),
+    meta: { hideTab: true },
+  },
+  {
     path: '/pet',
     name: 'Pet',
     component: () => import('../views/Pet.vue'),
@@ -102,6 +162,30 @@ const routes = [
     path: '/tasks',
     name: 'Tasks',
     component: () => import('../views/Tasks.vue'),
+    meta: { hideTab: true },
+  },
+  {
+    path: '/tasks/:id',
+    name: 'TaskDetail',
+    component: () => import('../views/TaskDetail.vue'),
+    meta: { hideTab: true },
+  },
+  {
+    path: '/tasks-records',
+    name: 'TaskRecords',
+    component: () => import('../views/TaskRecords.vue'),
+    meta: { hideTab: true },
+  },
+  {
+    path: '/treasure-box',
+    name: 'TreasureBox',
+    component: () => import('../views/TreasureBox.vue'),
+    meta: { hideTab: true },
+  },
+  {
+    path: '/checkin',
+    name: 'CheckIn',
+    component: () => import('../views/CheckIn.vue'),
     meta: { hideTab: true },
   },
   {

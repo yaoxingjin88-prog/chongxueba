@@ -53,7 +53,47 @@ function formatPlazaRoom(row) {
     memberAvatars: parseJsonArray(row.member_avatars),
     extraMembers: row.extra_members,
     openedAt: row.opened_at,
+    isPrivate: Boolean(row.is_private),
   }
+}
+
+async function getSessionRoomCode(userId) {
+  await ensureInteractSession(userId)
+  const [[row]] = await pool.query(
+    'SELECT room_code FROM study_interact_sessions WHERE user_id = ?',
+    [userId],
+  )
+  return row?.room_code || 'SR-DEFAULT'
+}
+
+async function getRoomMetaByCode(roomCode) {
+  const [rows] = await pool.query(
+    `SELECT name, subtitle, rules_summary, room_intro, online_count
+     FROM study_rooms WHERE room_code = ? LIMIT 1`,
+    [roomCode],
+  )
+  if (!rows.length) {
+    return {
+      name: '星光自习室',
+      rules_summary: '请保持安静专注，文明交流。',
+      subtitle: '一起专注，互相陪伴',
+    }
+  }
+  return rows[0]
+}
+
+function resolveJoinMode(room) {
+  const camera = room.camera_enabled == null ? 1 : Number(room.camera_enabled)
+  const mic = room.mic_enabled == null ? 1 : Number(room.mic_enabled)
+  if (camera) return 'video'
+  if (mic) return 'voice'
+  return 'main'
+}
+
+function joinRouteForMode(mode) {
+  if (mode === 'video') return '/study-room/video'
+  if (mode === 'voice') return '/study-room/voice'
+  return '/study-room'
 }
 
 const PLAZA_CATEGORIES = [
@@ -70,6 +110,40 @@ const PLAZA_SORTS = {
   focus: 'focus_rate DESC, sort_order ASC',
   latest: 'opened_at DESC, sort_order ASC',
 }
+
+const CREATE_THEMES = [
+  { label: '考研冲刺', category: 'kaoyan', tag: '考研冲刺' },
+  { label: '晚间专注', category: 'recommend', tag: '晚间专注' },
+  { label: '英语学习', category: 'language', tag: '英语学习' },
+]
+
+const CREATE_MORE_THEMES = [
+  { label: '热门自习', category: 'hot', tag: '热门' },
+  { label: '四六级', category: 'cet', tag: '四六级' },
+  { label: '编程学习', category: 'code', tag: '编程' },
+]
+
+const CREATE_MODES = [
+  { key: 'quiet', label: '安静自习' },
+  { key: 'pomodoro', label: '番茄专注' },
+  { key: 'ai', label: 'AI陪伴' },
+]
+
+const CREATE_DURATIONS = [25, 45, 60]
+const CREATE_CAPACITIES = [4, 8, 12]
+
+const ATMOSPHERE_MAP = {
+  'starry-night': { label: '星空之夜', coverSeed: 'night-deer' },
+  'moon-desk': { label: '月夜书桌', coverSeed: 'library-owl' },
+  'cloud-dream': { label: '云端梦境', coverSeed: 'wizard-cat' },
+}
+
+const CREATE_RULES = [
+  '自习室名称 2-20 字，请勿使用违规或广告内容',
+  '公开房间可被搜索加入，私密房间需输入正确密码',
+  '请保持友善交流，禁止广告与无关打扰',
+  '开麦/摄像头请尊重他人，专注学习为第一原则',
+]
 
 function formatBuddy(row) {
   return {
@@ -170,35 +244,106 @@ router.get('/plaza', async (req, res, next) => {
   }
 })
 
+router.get('/create-page', async (_req, res) => {
+  res.json({
+    success: true,
+    data: {
+      themes: CREATE_THEMES,
+      moreThemes: CREATE_MORE_THEMES,
+      modes: CREATE_MODES,
+      durations: CREATE_DURATIONS,
+      capacities: CREATE_CAPACITIES,
+      atmospheres: Object.entries(ATMOSPHERE_MAP).map(([id, item]) => ({
+        id,
+        label: item.label,
+        coverSeed: item.coverSeed,
+      })),
+      rules: CREATE_RULES,
+    },
+  })
+})
+
 router.post('/plaza/create', async (req, res, next) => {
   try {
+    const userId = resolveUserId(req)
     const name = String(req.body.name || '').trim()
-    const subtitle = String(req.body.subtitle || '一起专注，互相陪伴').trim()
-    const category = PLAZA_CATEGORIES.some((item) => item.key === req.body.category)
-      ? req.body.category
-      : 'recommend'
-    const roomLabel = String(req.body.roomLabel || '新建').trim().slice(0, 10)
-    const coverSeed = String(req.body.coverSeed || 'new-room').trim().slice(0, 50)
-    const roomCode = `SR-${Date.now().toString().slice(-6)}`
-
-    if (!name) {
-      return res.status(400).json({ success: false, message: '自习室名称不能为空' })
+    if (name.length < 2 || name.length > 20) {
+      return res.status(400).json({ success: false, message: '自习室名称需为 2-20 字' })
     }
+
+    const themeLabel = String(req.body.themeLabel || '晚间专注').trim()
+    const themeItem = [...CREATE_THEMES, ...CREATE_MORE_THEMES].find((t) => t.label === themeLabel)
+      || CREATE_THEMES[1]
+    const category = themeItem.category
+    const roomLabel = themeItem.tag.slice(0, 10)
+
+    const studyMode = CREATE_MODES.some((m) => m.key === req.body.studyMode)
+      ? req.body.studyMode
+      : 'quiet'
+    const modeLabel = CREATE_MODES.find((m) => m.key === studyMode)?.label || '安静自习'
+
+    const isPrivate = Boolean(req.body.isPrivate)
+    const password = String(req.body.password || '').trim()
+    if (isPrivate) {
+      if (password.length < 4 || password.length > 8) {
+        return res.status(400).json({ success: false, message: '房间密码需为 4-8 位' })
+      }
+    }
+
+    const durationMinutes = CREATE_DURATIONS.includes(Number(req.body.durationMinutes))
+      ? Number(req.body.durationMinutes)
+      : 45
+    const maxMembers = CREATE_CAPACITIES.includes(Number(req.body.maxMembers))
+      ? Number(req.body.maxMembers)
+      : 8
+    const micEnabled = req.body.micEnabled !== false
+    const cameraEnabled = req.body.cameraEnabled !== false
+
+    const atmosphereId = ATMOSPHERE_MAP[req.body.atmosphereId]
+      ? req.body.atmosphereId
+      : 'starry-night'
+    const atmosphere = ATMOSPHERE_MAP[atmosphereId]
+    const coverSeed = atmosphere.coverSeed
+
+    const subtitle = String(req.body.subtitle || `${modeLabel} · ${durationMinutes}分钟`).trim()
+    const roomCode = `SR-${Date.now().toString().slice(-6)}`
+    const entryMethod = isPrivate ? '密码加入' : '自由加入'
+    const rulesSummary = `${modeLabel} | ${durationMinutes}分钟 | 上限${maxMembers}人`
+
+    const [[host]] = await pool.query('SELECT name FROM users WHERE id = ?', [userId])
+    const hostName = host?.name || '房主'
 
     const [result] = await pool.query(
       `INSERT INTO study_rooms
-        (room_code, name, subtitle, cover_seed, online_count, focus_rate, tags,
-         category, room_label, member_avatars, extra_members, sort_order, opened_at)
-       VALUES (?, ?, ?, ?, 1, 100, ?, ?, ?, ?, 0, 999, NOW())`,
+        (room_code, name, subtitle, room_intro, entry_method, rules_summary,
+         host_name, cover_seed, online_count, focus_rate, tags,
+         category, room_label, member_avatars, extra_members, sort_order, opened_at,
+         study_mode, is_private, room_password, duration_minutes, max_members,
+         mic_enabled, camera_enabled, atmosphere_id, creator_user_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 100, ?, ?, ?, ?, 0, 999, NOW(),
+               ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         roomCode,
         name,
         subtitle,
+        `欢迎来到「${name}」，一起专注，互相陪伴 ✨`,
+        entryMethod,
+        rulesSummary,
+        hostName,
         coverSeed,
-        JSON.stringify([roomLabel]),
+        JSON.stringify([themeItem.tag]),
         category,
         roomLabel,
         JSON.stringify(['xiaocheng']),
+        studyMode,
+        isPrivate ? 1 : 0,
+        isPrivate ? password : null,
+        durationMinutes,
+        maxMembers,
+        micEnabled ? 1 : 0,
+        cameraEnabled ? 1 : 0,
+        atmosphereId,
+        userId,
       ],
     )
 
@@ -379,9 +524,15 @@ router.delete('/search-history', async (req, res, next) => {
 
 router.post('/rooms/:id/join', async (req, res, next) => {
   try {
+    const userId = resolveUserId(req)
     const roomId = Number(req.params.id)
+    const password = String(req.body.password || '').trim()
+
     const [rows] = await pool.query(
-      'SELECT id, name, room_code FROM study_rooms WHERE id = ?',
+      `SELECT id, name, room_code, subtitle, room_intro, rules_summary,
+              online_count, is_private, room_password, mic_enabled, camera_enabled,
+              max_members, duration_minutes, study_mode
+       FROM study_rooms WHERE id = ?`,
       [roomId],
     )
 
@@ -389,14 +540,95 @@ router.post('/rooms/:id/join', async (req, res, next) => {
       return res.status(404).json({ success: false, message: '自习室不存在' })
     }
 
+    const room = rows[0]
+
+    if (Boolean(room.is_private)) {
+      if (!password) {
+        return res.status(400).json({
+          success: false,
+          message: '请输入房间密码',
+          code: 'PASSWORD_REQUIRED',
+        })
+      }
+      if (password !== String(room.room_password || '')) {
+        return res.status(403).json({ success: false, message: '房间密码错误' })
+      }
+    }
+
+    const maxMembers = Number(room.max_members) || 0
+    if (maxMembers > 0 && Number(room.online_count) >= maxMembers) {
+      return res.status(400).json({ success: false, message: '房间人数已满' })
+    }
+
+    const joinMode = resolveJoinMode(room)
+    const interactMode = joinMode === 'main' ? 'spectate' : joinMode
+
+    await ensureInteractSession(userId)
+    await pool.query(
+      `UPDATE study_interact_sessions
+       SET mode = ?, room_code = ?, joined_at = NOW()
+       WHERE user_id = ?`,
+      [interactMode, room.room_code, userId],
+    )
+
+    const micOn = room.mic_enabled == null ? 1 : Number(room.mic_enabled)
+    const cameraOn = room.camera_enabled == null ? 1 : Number(room.camera_enabled)
+
+    if (joinMode === 'video') {
+      await ensureVideoState(userId, room.room_code)
+      await pool.query(
+        `UPDATE study_video_user_state
+         SET mic_enabled = ?, camera_enabled = ?, room_code = ?
+         WHERE user_id = ?`,
+        [micOn, cameraOn, room.room_code, userId],
+      )
+    } else if (joinMode === 'voice') {
+      await ensureVoiceState(userId, room.room_code)
+      await pool.query(
+        `UPDATE study_voice_user_state
+         SET mic_enabled = ?, room_code = ?
+         WHERE user_id = ?`,
+        [micOn, room.room_code, userId],
+      )
+    }
+
+    if (room.duration_minutes) {
+      const focusSec = Number(room.duration_minutes) * 60
+      try {
+        if (joinMode === 'video') {
+          await pool.query(
+            'UPDATE study_video_user_state SET focus_remaining_sec = ? WHERE user_id = ?',
+            [focusSec, userId],
+          )
+        } else if (joinMode === 'voice') {
+          await pool.query(
+            'UPDATE study_voice_user_state SET focus_remaining_sec = ? WHERE user_id = ?',
+            [focusSec, userId],
+          )
+        }
+      } catch {
+        /* optional columns */
+      }
+    }
+
+    await pool.query(
+      'UPDATE study_rooms SET online_count = online_count + 1 WHERE id = ?',
+      [roomId],
+    )
+
+    const modeLabels = { video: '视频自习', voice: '语音连麦', main: '安静自习' }
+
     res.json({
       success: true,
-      message: `已加入「${rows[0].name}」`,
+      message: `已加入「${room.name}」`,
       data: {
-        roomId: rows[0].id,
-        roomCode: rows[0].room_code,
-        name: rows[0].name,
-        message: `已加入「${rows[0].name}」`,
+        roomId: room.id,
+        roomCode: room.room_code,
+        name: room.name,
+        joinMode,
+        route: joinRouteForMode(joinMode),
+        modeLabel: modeLabels[joinMode],
+        message: `已加入「${room.name}」`,
       },
     })
   } catch (err) {
@@ -656,7 +888,8 @@ function buildPartnerList(participants) {
 }
 
 async function buildVoiceRoom(userId) {
-  const roomCode = 'SR-DEFAULT'
+  const roomCode = await getSessionRoomCode(userId)
+  const roomMeta = await getRoomMetaByCode(roomCode)
   await ensureVoiceState(userId, roomCode)
 
   const [[userRow]] = await pool.query('SELECT name FROM users WHERE id = ?', [userId])
@@ -690,10 +923,10 @@ async function buildVoiceRoom(userId) {
   const selfStatus = state.hand_raised ? 'hand_raise' : state.is_speaking ? 'speaking' : 'focusing'
 
   return {
-    roomName: '星光自习室',
+    roomName: roomMeta.name || '星光自习室',
     roomCode,
     onlineCount,
-    rules: '请保持安静专注，连麦时文明用语；按住说话松开发送，尊重他人学习节奏。',
+    rules: roomMeta.rules_summary || '请保持安静专注，连麦时文明用语；按住说话松开发送，尊重他人学习节奏。',
     focusRemainingSec: state.focus_remaining_sec,
     focusLabel: formatFocusTime(state.focus_remaining_sec),
     center: center ? formatParticipant(center) : null,
@@ -862,7 +1095,8 @@ function formatVideoTile(row) {
 }
 
 async function buildVideoRoom(userId) {
-  const roomCode = 'SR-DEFAULT'
+  const roomCode = await getSessionRoomCode(userId)
+  const roomMeta = await getRoomMetaByCode(roomCode)
   await ensureVideoState(userId, roomCode)
 
   const [[userRow]] = await pool.query('SELECT name FROM users WHERE id = ?', [userId])
@@ -895,11 +1129,11 @@ async function buildVideoRoom(userId) {
   const moreCount = Math.max(0, onlineCount - gridTiles.length)
 
   return {
-    roomName: '星光自习室',
+    roomName: roomMeta.name || '星光自习室',
     roomCode,
     onlineCount,
     moreCount,
-    rules: '视频自习请衣着得体、保持专注；禁止录屏传播他人画面，尊重隐私。',
+    rules: roomMeta.rules_summary || '视频自习请衣着得体、保持专注；禁止录屏传播他人画面，尊重隐私。',
     focusRemainingSec: state.focus_remaining_sec,
     focusLabel: formatFocusTime(state.focus_remaining_sec),
     gridTiles,

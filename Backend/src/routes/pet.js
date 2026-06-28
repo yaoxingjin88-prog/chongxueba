@@ -4,6 +4,7 @@ import { resolveUserId } from '../utils/auth.js'
 import { buildPetNurturePage, performPetAction, claimIntimacyReward } from '../utils/petNurture.js'
 import { buildPetSharePayload, resolvePetShareAction } from '../utils/petShare.js'
 import { buildPetEncyclopedia } from '../utils/petEncyclopedia.js'
+import { buildPetProfile } from '../utils/petProfile.js'
 
 const router = Router()
 
@@ -66,6 +67,19 @@ router.get('/encyclopedia', async (req, res, next) => {
   try {
     const userId = resolveUserId(req)
     const data = await buildPetEncyclopedia(pool, userId, buildPetNurturePage)
+    res.json({ success: true, data })
+  } catch (err) {
+    next(err)
+  }
+})
+
+router.get('/profile', async (req, res, next) => {
+  try {
+    const userId = resolveUserId(req)
+    const data = await buildPetProfile(pool, userId)
+    if (!data) {
+      return res.status(404).json({ success: false, message: '宠物不存在' })
+    }
     res.json({ success: true, data })
   } catch (err) {
     next(err)

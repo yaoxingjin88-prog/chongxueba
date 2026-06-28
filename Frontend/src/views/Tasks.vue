@@ -1,136 +1,235 @@
 <script setup>
-import { ref, onMounted } from 'vue'
-import PageHeader from '../components/PageHeader.vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
+import DreamPageBg from '../components/DreamPageBg.vue'
+import trophyImg from '../assets/rewards/trophy.png'
+import Reward3DIcon from '../components/Reward3DIcon.vue'
+import ChestTierIcon from '../components/ChestTierIcon.vue'
 import { api } from '../api'
 import { useUserStore } from '../stores/user'
 
+const router = useRouter()
 const user = useUserStore()
-const tabTypes = ['daily', 'weekly', 'goal', 'streak']
+const tabTypes = ['daily', 'weekly', 'event']
+const tabs = ['每日任务', '每周挑战', '限时活动']
 const activeTab = ref(0)
 const tasks = ref([])
 const currentActivity = ref(0)
+const weekCountdown = ref(null)
+const eventCountdown = ref(null)
+const chests = ref([])
 const loading = ref(true)
+const chestLoaded = ref(false)
 
 const milestones = [
-  { value: 20, tone: 'gold', position: 2 },
-  { value: 40, tone: 'blue', position: 26 },
-  { value: 60, tone: 'copper', position: 50 },
-  { value: 80, tone: 'orange', position: 74 },
-  { value: 100, tone: 'purple', position: 98 },
+  { value: 20, tier: 1, pos: 8 },
+  { value: 40, tier: 2, pos: 32 },
+  { value: 60, tier: 3, pos: 56 },
+  { value: 80, tier: 4, pos: 80 },
 ]
+
+const pageTitle = computed(() => {
+  if (activeTab.value === 1) return '挑战任务'
+  if (activeTab.value === 2) return '限时活动'
+  return '任务中心'
+})
+
+const countdownText = computed(() => {
+  const cd = activeTab.value === 2 ? eventCountdown.value : weekCountdown.value
+  if (!cd) return ''
+  const { days, hours, minutes, seconds } = cd
+  return `${days}天 ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+})
+
+function chestStatus(tier) {
+  const c = chests.value.find((x) => x.tier === tier)
+  if (!c) return 'locked'
+  if (c.claimed) return 'claimed'
+  if (c.canClaim) return 'claimable'
+  if (c.reached) return 'reached'
+  return 'locked'
+}
+
+async function loadChests(force = false) {
+  if (chestLoaded.value && !force) return
+  const chestData = await api.getActivityChests()
+  currentActivity.value = chestData.currentActivity
+  chests.value = chestData.chests
+  chestLoaded.value = true
+}
 
 async function loadTasks() {
   loading.value = true
   try {
     const data = await api.getTasks(tabTypes[activeTab.value])
     tasks.value = data.tasks
-    currentActivity.value = data.currentActivity
-  } finally {
-    loading.value = false
-  }
+    if (data.currentActivity != null) currentActivity.value = data.currentActivity
+    weekCountdown.value = data.weekCountdown || null
+    eventCountdown.value = data.eventCountdown || null
+  } finally { loading.value = false }
 }
 
-async function onTabChange(index) {
-  activeTab.value = index
+async function onTabChange(i) {
+  activeTab.value = i
   await loadTasks()
 }
 
-async function completeTask(task) {
-  if (task.done) return
-  await api.completeTask(task.id)
+function goDetail(t) { router.push(`/tasks/${t.id}`) }
+
+async function claimChest(tier) {
+  if (chestStatus(tier) !== 'claimable') return
+  await api.claimActivityChest(tier)
   await user.refresh()
-  await loadTasks()
+  await loadChests(true)
 }
 
-onMounted(loadTasks)
+let timer
+onMounted(async () => {
+  await Promise.all([loadTasks(), loadChests(true)])
+  timer = setInterval(() => {
+    for (const cd of [weekCountdown.value, eventCountdown.value]) {
+      if (cd?.totalMs > 0) {
+        cd.totalMs -= 1000
+        cd.days = Math.floor(cd.totalMs / 86400000)
+        cd.hours = Math.floor((cd.totalMs % 86400000) / 3600000)
+        cd.minutes = Math.floor((cd.totalMs % 3600000) / 60000)
+        cd.seconds = Math.floor((cd.totalMs % 60000) / 1000)
+      }
+    }
+  }, 1000)
+})
+onUnmounted(() => clearInterval(timer))
 </script>
 
 <template>
-  <div class="tasks page">
-    <div class="task-bg" aria-hidden="true">
-      <div class="task-stars" />
-      <div class="task-glow task-glow-one" />
-      <div class="task-glow task-glow-two" />
-      <div class="task-cloud cloud-left" />
-      <div class="task-cloud cloud-right" />
-    </div>
+  <div class="dream-page tasks-hub">
+    <DreamPageBg />
 
-    <PageHeader title="任务中心" transparent />
-
-    <main class="page-content no-tab">
-      <nav class="tab-row" aria-label="任务类型">
-        <button
-          v-for="(tab, index) in tabs"
-          :key="tab"
-          class="tab-btn"
-          :class="{ active: activeTab === index }"
-          type="button"
-          @click="onTabChange(index)"
-        >
-          {{ tab }}
+    <header class="dream-header">
+      <button class="dream-hdr-btn" type="button" aria-label="返回" @click="router.back()">
+        <font-awesome-icon icon="chevron-left" />
+      </button>
+      <h1>{{ pageTitle }}</h1>
+      <div class="hdr-actions">
+        <button class="dream-hdr-btn" type="button" aria-label="每日签到" @click="router.push('/checkin')">
+          <font-awesome-icon icon="calendar-check" />
         </button>
+        <button class="dream-hdr-btn" type="button" aria-label="奖励宝箱" @click="router.push('/treasure-box')">
+          <font-awesome-icon icon="gift" />
+        </button>
+        <button class="dream-hdr-btn" type="button" aria-label="任务记录" @click="router.push('/tasks-records')">
+          <font-awesome-icon icon="clock-rotate-left" />
+        </button>
+      </div>
+    </header>
+
+    <main class="dream-body">
+      <nav class="task-tab-row task-tab-row--underline">
+        <button
+          v-for="(tab, i) in tabs"
+          :key="tab"
+          class="task-tab-btn"
+          :class="{ active: activeTab === i }"
+          @click="onTabChange(i)"
+        >{{ tab }}</button>
       </nav>
 
-      <section class="task-list" aria-label="任务列表">
-        <article v-for="task in tasks" :key="task.title" class="task-card">
-          <div class="task-icon" :style="{ '--task-color': task.color }">
-            <font-awesome-icon :icon="task.icon" />
-          </div>
-          <div class="task-info">
-            <span class="task-title">{{ task.title }}</span>
-            <div class="task-meta">
-              <span class="task-progress">{{ task.progress }}</span>
-              <span class="reward exp"><font-awesome-icon icon="bolt" /> +{{ task.exp }} EXP</span>
-              <span class="reward coins"><font-awesome-icon icon="coins" /> +{{ task.coins }}</span>
-            </div>
-          </div>
-          <button v-if="!task.done" class="task-action" type="button" @click="completeTask(task)">去完成</button>
-          <span v-else class="task-done" aria-label="已完成">
-            <font-awesome-icon icon="circle-check" />
-          </span>
-        </article>
+      <section v-if="activeTab === 1 && weekCountdown" class="week-banner">
+        <div class="week-copy">
+          <strong>本周挑战赛</strong>
+          <p>挑战自我 · 赢取丰厚奖励</p>
+          <span class="countdown-pill">剩余时间：{{ countdownText }}</span>
+        </div>
+        <img class="week-trophy-img" :src="trophyImg" alt="" draggable="false" />
       </section>
 
-      <section class="activity-section" aria-label="今日活跃度奖励">
-        <div class="activity-header">
-          <div>
-            <span class="activity-title">今日活跃度</span>
-            <p>完成任务，开启阶段宝箱</p>
-          </div>
-          <span class="activity-value">{{ currentActivity }}/100</span>
+      <section v-if="activeTab === 2 && eventCountdown" class="week-banner event-banner">
+        <div class="week-copy">
+          <strong>限时活动进行中</strong>
+          <p>完成活动任务 · 赢取限定奖励</p>
+          <span class="countdown-pill">剩余时间：{{ countdownText }}</span>
         </div>
+        <Reward3DIcon variant="chest" :size="80" :floating="true" :glowing="true" class="week-trophy-slot" />
+      </section>
 
-        <div class="reward-track">
-          <div class="activity-bar">
-            <div class="activity-fill" :style="{ width: `${currentActivity}%` }" />
+      <section v-if="loading" class="list">
+        <div v-for="i in 3" :key="i" class="task-skeleton card-sk" />
+      </section>
+
+      <TransitionGroup v-else name="task-card" tag="section" class="list">
+        <article
+          v-for="task in tasks"
+          :key="task.id"
+          class="dream-card task-card"
+          :class="{ 'task-card--done': task.done }"
+          @click="goDetail(task)"
+        >
+          <div class="task-inner">
+            <div class="task-icon" :style="{ color: task.color || '#7b61ff' }">
+              <font-awesome-icon :icon="task.icon" />
+            </div>
+            <div class="task-main">
+              <h3 class="task-title">{{ task.title }}</h3>
+              <p v-if="task.description && activeTab === 1" class="task-desc">{{ task.description }}</p>
+              <span v-if="task.done" class="done-tag">已完成</span>
+              <div class="task-prog">
+                <span class="prog-label">{{ activeTab === 1 ? `进度: ${task.progress}` : task.progress }}</span>
+                <div class="prog-bar">
+                  <div class="prog-bar__fill" :style="{ width: `${task.progressPercent}%` }" />
+                </div>
+              </div>
+              <div class="task-rewards">
+                <span class="reward-tag exp"><font-awesome-icon icon="bolt" /> +{{ task.exp }}</span>
+                <span class="reward-tag coin"><font-awesome-icon icon="coins" /> +{{ task.coins }}</span>
+              </div>
+            </div>
+            <div class="task-side">
+              <div v-if="activeTab === 1" class="medal-badge" :class="{ done: task.done }">
+                <div class="medal-badge__coin">
+                  <font-awesome-icon :icon="task.done ? 'check' : 'star'" />
+                </div>
+                <div class="medal-badge__ribbon" aria-hidden="true" />
+              </div>
+              <button v-else-if="!task.done" class="go-btn" type="button" @click.stop="goDetail(task)">去完成</button>
+              <span v-else class="done-check"><font-awesome-icon icon="circle-check" /></span>
+            </div>
           </div>
+        </article>
+        <p v-if="!tasks.length" key="empty" class="empty-hint">暂无任务</p>
+      </TransitionGroup>
 
+      <section class="dream-card activity-card">
+        <div class="act-head">
+          <div>
+            <strong class="act-title">今日活跃度</strong>
+            <p class="act-sub">完成任务，开启阶段宝箱</p>
+          </div>
+          <span class="act-score"><em>{{ currentActivity }}</em>/100</span>
+        </div>
+        <div class="act-track">
+          <div class="act-rail"><div class="act-rail__fill" :style="{ width: `${currentActivity}%` }" /></div>
           <div
-            v-for="milestone in milestones"
-            :key="milestone.value"
-            class="milestone"
-            :class="[
-              `tone-${milestone.tone}`,
-              {
-                reached: currentActivity >= milestone.value,
-                next: currentActivity < milestone.value && milestone.value === 40,
-                grand: milestone.value === 100,
-                first: milestone.value === 20,
-                last: milestone.value === 100,
-              },
-            ]"
-            :style="{ left: `${milestone.position}%` }"
+            v-for="m in milestones"
+            :key="m.tier"
+            class="act-node"
+            :class="chestStatus(m.tier)"
+            :style="{ left: `${m.pos}%` }"
+            @click="chestStatus(m.tier) === 'claimable' ? claimChest(m.tier) : router.push('/treasure-box')"
           >
-            <div class="chest-glow" />
-            <div class="treasure-chest">
-              <span class="chest-lid" />
-              <span class="chest-body" />
-              <span class="chest-band" />
-              <span class="chest-lock">
-                <font-awesome-icon :icon="currentActivity >= milestone.value ? 'check' : 'lock'" />
+            <div
+              class="act-node-icon"
+              :class="{
+                claimed: chestStatus(m.tier) === 'claimed',
+                claimable: chestStatus(m.tier) === 'claimable',
+                locked: chestStatus(m.tier) === 'locked',
+              }"
+            >
+              <ChestTierIcon :tier="m.tier" :size="44" mini :floating="false" />
+              <span v-if="chestStatus(m.tier) === 'claimed'" class="act-check-badge" aria-label="已领取">
+                <font-awesome-icon icon="check" />
               </span>
             </div>
-            <span class="milestone-value">{{ milestone.value }}</span>
+            <span class="act-node-val">{{ m.value }}</span>
           </div>
         </div>
       </section>
@@ -139,471 +238,272 @@ onMounted(loadTasks)
 </template>
 
 <style scoped>
-.tasks {
-  isolation: isolate;
-  background: #405bcf;
-  color: #fff;
-}
+.tasks-hub .dream-body { padding-bottom: 32px; }
 
-.task-bg {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  pointer-events: none;
-}
+.dream-header h1 { flex: 1; text-align: center; }
+.hdr-actions { display: flex; gap: 6px; }
 
-.task-bg::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, #5b64df 0%, #5269dd 30%, #4564d4 62%, #3657bd 100%);
-}
-
-.task-stars {
-  position: absolute;
-  inset: 0;
-  background-image:
-    radial-gradient(1px 1px at 10% 12%, rgba(255,255,255,.9) 0%, transparent 100%),
-    radial-gradient(1px 1px at 27% 5%, rgba(255,255,255,.65) 0%, transparent 100%),
-    radial-gradient(1.5px 1.5px at 53% 16%, rgba(255,255,255,.8) 0%, transparent 100%),
-    radial-gradient(1px 1px at 79% 8%, rgba(255,255,255,.72) 0%, transparent 100%),
-    radial-gradient(1px 1px at 91% 36%, rgba(255,255,255,.6) 0%, transparent 100%),
-    radial-gradient(1px 1px at 14% 58%, rgba(255,255,255,.55) 0%, transparent 100%),
-    radial-gradient(1.5px 1.5px at 70% 73%, rgba(255,255,255,.6) 0%, transparent 100%),
-    radial-gradient(1px 1px at 36% 89%, rgba(255,255,255,.5) 0%, transparent 100%);
-  opacity: .8;
-}
-
-.task-glow {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(62px);
-  opacity: .3;
-}
-
-.task-glow-one {
-  width: 280px;
-  height: 280px;
-  top: 15%;
-  left: -42%;
-  background: #73b7ff;
-}
-
-.task-glow-two {
-  width: 250px;
-  height: 250px;
-  right: -38%;
-  bottom: 10%;
-  background: #a886ff;
-}
-
-.task-cloud {
-  position: absolute;
-  border-radius: 999px;
-  background: rgba(255,255,255,.08);
-  filter: blur(3px);
-}
-
-.cloud-left {
-  width: 110px;
-  height: 28px;
-  top: 38%;
-  left: -35px;
-}
-
-.cloud-right {
-  width: 95px;
-  height: 25px;
-  right: -20px;
-  bottom: 18%;
-}
-
-.tasks :deep(.page-header) {
-  color: #fff;
-}
-
-.tasks :deep(.back-btn) {
-  background: rgba(255,255,255,.1);
-  border: 1px solid rgba(255,255,255,.08);
-}
-
-.page-content {
-  position: relative;
-  z-index: 3;
-}
-
-.tab-row {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(max-content, 1fr));
-  gap: 7px;
-  margin-bottom: 12px;
-  padding: 0 16px;
-  overflow-x: auto;
-}
-
-.tab-btn {
-  padding: 8px 11px;
-  border: 1px solid rgba(255, 255, 255, .12);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, .07);
-  color: rgba(255,255,255,.7);
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  transition: background .2s ease, transform .2s ease;
-}
-
-.tab-btn.active {
-  border-color: rgba(255,255,255,.72);
-  background: rgba(255,255,255,.9);
-  box-shadow: 0 6px 16px rgba(37, 50, 143, .16);
-  color: #6553ce;
-}
-
-.tab-btn:active {
-  transform: scale(.96);
-}
-
-.task-list {
+.week-banner {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 14px;
-  padding: 0 16px;
-}
-
-.task-card {
-  display: flex;
-  min-height: 68px;
   align-items: center;
-  gap: 11px;
-  padding: 11px 12px;
-  border: 1px solid rgba(255,255,255,.4);
-  border-radius: 17px;
-  background: linear-gradient(110deg, rgba(255,255,255,.86), rgba(247,244,255,.72));
-  box-shadow: 0 8px 22px rgba(33, 43, 127, .13), inset 0 1px 0 rgba(255,255,255,.6);
-  color: #554b73;
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 18px 16px 18px 18px;
+  border-radius: 22px;
+  background: linear-gradient(135deg, #8b74f9 0%, #7b61ff 55%, #6d5ce8 100%);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 28px rgba(123, 97, 255, 0.35);
+  overflow: visible;
 }
+
+.week-copy strong { display: block; font-size: 17px; font-weight: 800; color: #fff; margin-bottom: 4px; }
+.week-copy p { font-size: 12px; color: rgba(255,255,255,.75); margin-bottom: 10px; }
+.countdown-pill {
+  display: inline-block; padding: 4px 10px; border-radius: 999px;
+  background: rgba(255,255,255,.18); font-size: 11px; color: #fde68a;
+  font-variant-numeric: tabular-nums;
+}
+.week-trophy-img {
+  flex-shrink: 0;
+  height: 108px;
+  width: auto;
+  object-fit: contain;
+  display: block;
+  pointer-events: none;
+  user-select: none;
+}
+.event-banner { background: linear-gradient(135deg, #a78bfa, #7c3aed); }
+
+.list { margin-bottom: 14px; }
+.card-sk { height: 96px; margin-bottom: 12px; }
+.empty-hint { text-align: center; padding: 40px 20px; color: rgba(255,255,255,.45); font-size: 14px; }
+
+/* 任务卡片 */
+.task-card { cursor: pointer; transition: transform 0.15s; }
+.task-card:active { transform: scale(0.985); }
+.task-card--done { opacity: 0.85; }
+
+.task-inner { display: flex; align-items: flex-start; gap: 12px; }
 
 .task-icon {
-  display: flex;
-  width: 40px;
-  height: 40px;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--task-color) 15%, white);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--task-color) 20%, transparent);
-  color: var(--task-color);
-  font-size: 15px;
+  width: 48px; height: 48px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.92);
+  font-size: 20px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
 }
 
-.task-info {
-  min-width: 0;
-  flex: 1;
-}
+.task-main { flex: 1; min-width: 0; }
 
 .task-title {
-  display: block;
-  margin-bottom: 5px;
-  overflow: hidden;
-  color: #5f547d;
-  font-size: 13px;
-  font-weight: 700;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: 14px; font-weight: 700;
+  color: rgba(255, 255, 255, 0.95);
+  line-height: 1.35; margin-bottom: 4px;
 }
 
-.task-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.task-desc {
+  font-size: 11px; color: rgba(255,255,255,.45);
+  margin-bottom: 6px; line-height: 1.45;
 }
 
-.task-progress,
-.reward {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  color: #948aa7;
-  font-size: 9px;
-  white-space: nowrap;
+.done-tag {
+  display: inline-block; margin-bottom: 6px;
+  padding: 2px 8px; border-radius: 999px;
+  background: rgba(76, 217, 100, 0.2); color: #4cd964;
+  font-size: 10px; font-weight: 600;
 }
 
-.reward.exp {
-  color: #ee8a5d;
+.task-prog { margin-bottom: 8px; }
+
+.prog-label {
+  display: block; margin-bottom: 4px;
+  font-size: 11px; font-weight: 600;
+  color: rgba(255, 255, 255, 0.55);
 }
 
-.reward.coins {
-  color: #dfa142;
+.prog-bar {
+  height: 6px; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18); overflow: hidden;
 }
 
-.task-action {
-  flex-shrink: 0;
-  padding: 7px 12px;
-  border-radius: 999px;
-  background: linear-gradient(135deg, #9779ed, #7155d8);
-  box-shadow: 0 5px 13px rgba(101, 75, 195, .2);
-  color: #fff;
-  font-size: 11px;
-  font-weight: 650;
-  white-space: nowrap;
+.prog-bar__fill {
+  height: 100%; border-radius: inherit;
+  background: linear-gradient(90deg, #9d85ff, #7b61ff);
+  transition: width 0.45s ease;
 }
 
-.task-done {
-  flex-shrink: 0;
-  color: #45caa5;
-  font-size: 23px;
+.task-rewards { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.reward-tag {
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 3px 9px; border-radius: 999px;
+  font-size: 11px; font-weight: 700;
 }
 
-.activity-section {
-  margin: 0 16px 20px;
-  padding: 15px 14px 13px;
-  border: 1px solid rgba(255,255,255,.16);
-  border-radius: 19px;
-  background: linear-gradient(120deg, rgba(124, 156, 255, .3), rgba(105, 126, 229, .25));
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 10px 24px rgba(26, 40, 124, .13);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-}
+.reward-tag.exp { background: rgba(234, 88, 12, 0.2); color: #fdba74; }
+.reward-tag.coin { background: rgba(251, 191, 36, 0.2); color: #fde68a; }
 
-.activity-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
+.task-side { flex-shrink: 0; padding-top: 4px; }
 
-.activity-title {
-  color: #fff;
-  font-size: 14px;
-  font-weight: 750;
-}
-
-.activity-header p {
-  margin-top: 3px;
-  color: rgba(255,255,255,.55);
-  font-size: 9px;
-}
-
-.activity-value {
-  padding: 4px 9px;
-  border: 1px solid rgba(255,255,255,.16);
-  border-radius: 999px;
-  background: rgba(255,255,255,.1);
-  color: #ffdc75;
-  font-size: 11px;
-  font-weight: 750;
-}
-
-.reward-track {
-  position: relative;
-  height: 72px;
-  margin: 0 4px;
-}
-
-.activity-bar {
-  position: absolute;
-  z-index: 1;
-  top: 29px;
-  left: 2%;
-  right: 2%;
-  height: 7px;
-  overflow: hidden;
-  border: 1px solid rgba(255,255,255,.14);
-  border-radius: 999px;
-  background: rgba(36, 48, 143, .28);
-  box-shadow: inset 0 2px 4px rgba(28, 36, 105, .22);
-}
-
-.activity-fill {
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, #ffd366 0%, #ffb84f 55%, #e58a4d 100%);
-  box-shadow: 0 0 10px rgba(255, 195, 87, .65);
-  transition: width .5s ease;
-}
-
-.milestone {
-  --chest-dark: #8f6232;
-  --chest-main: #d99b49;
-  --chest-light: #ffc767;
-  --chest-width: 30px;
-  --chest-height: 27px;
-  position: absolute;
-  z-index: 3;
-  top: 0;
+.medal-badge {
   display: flex;
   flex-direction: column;
   align-items: center;
-  transform: translateX(-50%);
+  flex-shrink: 0;
 }
 
-.milestone.first {
-  transform: translateX(-20%);
-}
-
-.milestone.last {
-  transform: translateX(-80%);
-}
-
-.tone-blue {
-  --chest-dark: #414e86;
-  --chest-main: #6777b8;
-  --chest-light: #8da0dc;
-  --chest-width: 34px;
-  --chest-height: 30px;
-}
-
-.tone-copper {
-  --chest-dark: #88482f;
-  --chest-main: #cf7348;
-  --chest-light: #f09a67;
-  --chest-width: 38px;
-  --chest-height: 34px;
-}
-
-.tone-orange {
-  --chest-dark: #8f4829;
-  --chest-main: #db7542;
-  --chest-light: #f5a15f;
-  --chest-width: 43px;
-  --chest-height: 38px;
-}
-
-.tone-purple {
-  --chest-dark: #5a357c;
-  --chest-main: #8a50a9;
-  --chest-light: #bd72cf;
-  --chest-width: 50px;
-  --chest-height: 43px;
-}
-
-.treasure-chest {
-  position: relative;
-  width: var(--chest-width);
-  height: var(--chest-height);
-  margin-top: calc(43px - var(--chest-height));
-  filter: drop-shadow(0 5px 5px rgba(24, 30, 94, .28));
-  transition: transform .25s ease, filter .25s ease;
-}
-
-.grand .treasure-chest {
-  filter: drop-shadow(0 7px 7px rgba(74, 35, 111, .34));
-}
-
-.chest-lid {
-  position: absolute;
-  z-index: 3;
-  top: 1px;
-  left: 3px;
-  width: calc(100% - 6px);
-  height: 42%;
-  border: 2px solid var(--chest-dark);
-  border-radius: 9px 9px 3px 3px;
-  background: linear-gradient(180deg, var(--chest-light), var(--chest-main));
-  box-shadow: inset 0 2px 2px rgba(255,255,255,.3);
-}
-
-.chest-body {
-  position: absolute;
-  z-index: 2;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  height: 64%;
-  border: 2px solid var(--chest-dark);
-  border-radius: 4px 4px 8px 8px;
-  background: linear-gradient(145deg, var(--chest-light), var(--chest-main) 58%, var(--chest-dark));
-  box-shadow: inset 0 2px 2px rgba(255,255,255,.25);
-}
-
-.chest-band {
-  position: absolute;
-  z-index: 4;
-  top: 2px;
-  bottom: 1px;
-  left: 50%;
-  width: 7px;
-  border-right: 1px solid rgba(72,43,37,.35);
-  border-left: 1px solid rgba(255,255,255,.25);
-  background: var(--chest-dark);
-  transform: translateX(-50%);
-}
-
-.chest-lock {
-  position: absolute;
-  z-index: 5;
-  top: 43%;
-  left: 50%;
+.medal-badge__coin {
+  width: 40px;
+  height: 40px;
   display: flex;
-  width: clamp(9px, 31%, 14px);
-  height: clamp(9px, 31%, 14px);
   align-items: center;
   justify-content: center;
-  border: 1px solid #8c6129;
-  border-radius: 3px;
-  background: #ffd766;
-  color: #765124;
-  font-size: 6px;
-  transform: translateX(-50%);
-}
-
-.milestone-value {
-  margin-top: 4px;
-  color: rgba(255,255,255,.7);
-  font-size: 10px;
-  font-weight: 650;
-}
-
-.chest-glow {
-  position: absolute;
-  top: 5px;
-  width: 36px;
-  height: 28px;
   border-radius: 50%;
-  background: rgba(255, 211, 102, .5);
-  filter: blur(10px);
-  opacity: 0;
+  background: linear-gradient(145deg, #fff7d6, #fbbf24 45%, #d97706);
+  color: #92400e;
+  font-size: 16px;
+  box-shadow: 0 4px 14px rgba(251, 191, 36, 0.45);
+  position: relative;
+  z-index: 2;
 }
 
-.milestone.reached .chest-glow,
-.milestone.next .chest-glow {
-  opacity: .72;
+.medal-badge.done .medal-badge__coin {
+  background: linear-gradient(145deg, #ecfdf5, #4cd964);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(76, 217, 100, 0.35);
 }
 
-.milestone.reached .treasure-chest {
-  filter: drop-shadow(0 5px 6px rgba(255, 198, 77, .35));
+.medal-badge__ribbon {
+  width: 32px;
+  height: 14px;
+  margin-top: -3px;
+  background:
+    linear-gradient(135deg, transparent 50%, #7b61ff 50%) left / 50% 100% no-repeat,
+    linear-gradient(225deg, transparent 50%, #7b61ff 50%) right / 50% 100% no-repeat;
+  filter: drop-shadow(0 2px 4px rgba(123, 97, 255, 0.35));
 }
 
-.milestone.reached .milestone-value {
-  color: #ffdf80;
+.medal-badge.done .medal-badge__ribbon {
+  background:
+    linear-gradient(135deg, transparent 50%, #6ee7a0 50%) left / 50% 100% no-repeat,
+    linear-gradient(225deg, transparent 50%, #6ee7a0 50%) right / 50% 100% no-repeat;
 }
 
-.milestone.next .treasure-chest {
-  animation: chestPulse 2.2s ease-in-out infinite;
+.done-check {
+  width: 36px; height: 36px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  background: rgba(76, 217, 100, 0.22);
+  font-size: 20px; color: #4cd964;
 }
 
-@media (max-height: 760px) {
-  .task-card {
-    min-height: 62px;
-    padding-top: 8px;
-    padding-bottom: 8px;
-  }
-
-  .task-icon {
-    width: 36px;
-    height: 36px;
-  }
+.go-btn {
+  padding: 8px 14px; border: none; border-radius: 999px;
+  background: linear-gradient(90deg, #9d85ff, #7b61ff);
+  color: #fff; font-size: 12px; font-weight: 700;
+  white-space: nowrap; cursor: pointer;
+  box-shadow: 0 4px 14px rgba(123, 97, 255, 0.4);
 }
 
-@keyframes chestPulse {
-  0%, 100% { transform: translateY(0) scale(1); }
-  50% { transform: translateY(-3px) scale(1.04); }
+.go-btn:active { transform: scale(0.96); }
+
+/* 活跃度 */
+.activity-card { margin-bottom: 24px; }
+
+.act-head {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  margin-bottom: 18px;
 }
+
+.act-title {
+  display: block; font-size: 15px; font-weight: 700;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.act-sub {
+  margin-top: 4px; font-size: 11px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.act-score {
+  padding: 4px 12px; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  font-size: 13px; color: #635a78;
+  font-variant-numeric: tabular-nums;
+}
+
+.act-score em {
+  font-style: normal; color: #7b61ff; font-weight: 800;
+}
+
+.act-track { position: relative; height: 58px; }
+
+.act-rail {
+  position: absolute; top: 22px; left: 4%; right: 4%;
+  height: 8px; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18); overflow: hidden;
+}
+
+.act-rail__fill {
+  height: 100%;
+  background: linear-gradient(90deg, #9d85ff, #7b61ff);
+  transition: width 0.5s ease;
+}
+
+.act-node {
+  position: absolute; top: 0;
+  display: flex; flex-direction: column; align-items: center;
+  transform: translateX(-50%); cursor: pointer;
+}
+
+.act-node-icon {
+  position: relative;
+  width: 44px; height: 44px;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 4px;
+  border-radius: 12px;
+  background: transparent;
+  overflow: visible;
+}
+
+.act-node-icon.locked {
+  opacity: 0.72;
+  filter: grayscale(0.15);
+}
+
+.act-node-icon.claimable {
+  box-shadow: 0 0 0 2px rgba(123, 97, 255, 0.65);
+  border-radius: 14px;
+}
+
+.act-check-badge {
+  position: absolute;
+  right: -3px;
+  bottom: 0;
+  z-index: 3;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #4cd964;
+  color: #fff;
+  font-size: 8px;
+  border: 2px solid rgba(255, 255, 255, 0.92);
+  box-shadow: 0 2px 6px rgba(76, 217, 100, 0.45);
+}
+
+.act-node-val {
+  font-size: 10px; font-weight: 700;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.task-card-enter-active,
+.task-card-leave-active { transition: all 0.35s ease; }
+.task-card-enter-from { opacity: 0; transform: translateY(10px); }
+.task-card-leave-to { opacity: 0; transform: scale(0.97); }
+.task-card-move { transition: transform 0.35s ease; }
 </style>

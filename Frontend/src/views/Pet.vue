@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onActivated } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
 import { avatarUrl } from '../utils/avatar'
@@ -116,6 +116,7 @@ function sharePet() {
 }
 
 onMounted(loadPet)
+onActivated(loadPet)
 </script>
 
 <template>
@@ -201,14 +202,24 @@ onMounted(loadPet)
           </button>
         </div>
 
-        <img :src="heroStageImage" alt="小橙" class="fox-hero">
+        <div class="fox-wrap">
+          <img :src="heroStageImage" alt="小橙" class="fox-hero">
+          <span
+            v-for="(item, i) in pet.equippedOutfit || []"
+            :key="`${item.name}-${i}`"
+            class="fox-gear"
+            :class="[`gear-cat-${item.category}`, `gear-idx-${i}`]"
+          >
+            {{ item.image }}
+          </span>
+        </div>
 
         <div class="float-actions">
-          <button type="button" class="round-btn glass" @click="showToast('装扮功能筹备中')">
+          <button type="button" class="round-btn glass" @click="router.push('/pet/dress-up')">
             <font-awesome-icon icon="crown" />
             <span>装扮</span>
           </button>
-          <button type="button" class="round-btn glass" @click="showToast('档案功能筹备中')">
+          <button type="button" class="round-btn glass" @click="router.push('/pet/profile')">
             <font-awesome-icon icon="book" />
             <span>宠物档案</span>
           </button>
@@ -573,12 +584,31 @@ onMounted(loadPet)
   justify-content: center;
 }
 
-.fox-hero {
+.fox-wrap {
+  position: relative;
   width: min(72%, 260px);
-  height: auto;
-  filter: drop-shadow(0 12px 24px rgba(40, 30, 100, 0.35));
   animation: float 3s ease-in-out infinite;
 }
+
+.fox-hero {
+  width: 100%;
+  height: auto;
+  display: block;
+  filter: drop-shadow(0 12px 24px rgba(40, 30, 100, 0.35));
+}
+
+.fox-gear {
+  position: absolute;
+  font-size: 26px;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.3));
+  pointer-events: none;
+  z-index: 2;
+}
+
+.gear-cat-1.gear-idx-0 { top: -6%; left: 50%; transform: translateX(-50%); font-size: 30px; }
+.gear-cat-1.gear-idx-1 { top: 6%; right: 6%; font-size: 22px; }
+.gear-cat-3.gear-idx-0 { bottom: 30%; left: -4%; font-size: 24px; }
+.gear-cat-3.gear-idx-1 { bottom: 24%; right: -2%; font-size: 22px; }
 
 @keyframes float {
   0%, 100% { transform: translateY(0); }

@@ -4,6 +4,7 @@ import 'dotenv/config'
 import pool from '../config/db.js'
 import { formatMinutes } from '../utils/format.js'
 import { verifyPassword } from '../utils/password.js'
+import { syncVipStatus } from '../services/vipService.js'
 
 const router = Router()
 const CODE_TTL = 5 * 60 * 1000
@@ -29,7 +30,29 @@ function logDevCode(phone, code) {
   console.log(`   有效期: ${Math.round(CODE_TTL / 60000)} 分钟\n`)
 }
 
+function formatExpireLabel(value) {
+  if (!value) return null
+  const d = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(d.getTime())) return null
+  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`
+}
+
+function vipFieldsFromRow(u) {
+  const now = new Date()
+  const expires = u.vip_expires_at ? new Date(u.vip_expires_at) : null
+  const active = Boolean(u.vip && (!expires || expires > now))
+  return {
+    vip: active,
+    vipExpiresAt: active && expires ? expires.toISOString() : null,
+    vipExpireLabel: active && expires ? `${formatExpireLabel(expires)}到期` : null,
+    vipDaysLeft: active && expires
+      ? Math.max(0, Math.ceil((expires - now) / 86400000))
+      : 0,
+  }
+}
+
 function toUser(u) {
+  const vipInfo = vipFieldsFromRow(u)
   return {
     id: u.id,
     name: u.name,
@@ -49,7 +72,7 @@ function toUser(u) {
     petLevel: u.pet_level,
     medals: u.medals,
     totalMedals: u.total_medals,
-    vip: Boolean(u.vip),
+    ...vipInfo,
     ambientSound: u.ambient_sound || 'rain',
     avatarSeed: u.avatar_seed || 'moon-night',
     avatarUrl: u.avatar_url || '',
@@ -67,7 +90,19 @@ async function getUser(userId) {
      WHERE u.id = ?`,
     [userId],
   )
-  return rows[0] ? toUser(rows[0]) : null
+  if (!rows[0]) return null
+  await syncVipStatus(rows[0].id)
+  const [fresh] = await pool.query(
+    `SELECT u.*, p.name AS pet_name, p.level AS pet_level,
+            up.avatar_seed, up.avatar_url,
+            (SELECT COALESCE(SUM(minutes), 0) FROM focus_records fr WHERE fr.user_id = u.id) AS focus_total_minutes
+     FROM users u
+     LEFT JOIN pets p ON p.user_id = u.id
+     LEFT JOIN user_profiles up ON up.user_id = u.id
+     WHERE u.id = ?`,
+    [userId],
+  )
+  return fresh[0] ? toUser(fresh[0]) : null
 }
 
 async function findUserByPhone(phone) {

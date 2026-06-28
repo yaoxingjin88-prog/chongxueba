@@ -1,8 +1,8 @@
 USE chong_xueba;
 
-INSERT INTO users (id, name, level, exp, exp_max, coins, gems, streak_days, focus_today_minutes, focus_week_minutes, mood, fullness, focus_stat, medals, total_medals, vip, ambient_sound)
-VALUES (1, '小棍同学', 23, 7850, 10000, 12450, 128, 23, 155, 1125, 92, 78, 85, 18, 45, 1, 'rain')
-ON DUPLICATE KEY UPDATE name = VALUES(name);
+INSERT INTO users (id, name, level, exp, exp_max, coins, gems, streak_days, focus_today_minutes, focus_week_minutes, mood, fullness, focus_stat, medals, total_medals, vip, vip_expires_at, ambient_sound)
+VALUES (1, '小棍同学', 23, 7850, 10000, 12450, 128, 23, 155, 1125, 92, 78, 85, 18, 45, 1, '2026-12-31 23:59:59', 'rain')
+ON DUPLICATE KEY UPDATE name = VALUES(name), vip_expires_at = VALUES(vip_expires_at);
 
 INSERT INTO pets (user_id, name, level, stage, study_power, focus_power, memory_power, discipline_power)
 SELECT 1, '小橙', 23, 'growth', 232, 198, 156, 189

@@ -1,0 +1,15 @@
+ALTER TABLE users ADD COLUMN vip_expires_at DATETIME DEFAULT NULL AFTER vip;
+
+CREATE TABLE IF NOT EXISTS vip_subscriptions (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  user_id INT NOT NULL,
+  plan_id VARCHAR(20) NOT NULL,
+  plan_name VARCHAR(50) NOT NULL,
+  pay_method VARCHAR(20) NOT NULL,
+  amount INT NOT NULL DEFAULT 0,
+  expires_at DATETIME NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+UPDATE users SET vip = 1, vip_expires_at = '2026-12-31 23:59:59' WHERE id = 1 AND vip = 1;

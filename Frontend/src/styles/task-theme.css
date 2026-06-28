@@ -1,0 +1,323 @@
+/* ===== 任务中心全局主题 #7B61FF（深紫背景 + 磨砂玻璃） ===== */
+:root {
+  --task-primary: #7b61ff;
+  --task-primary-light: #9d85ff;
+  --task-primary-dark: #5a45d6;
+  --task-glass: rgba(255, 255, 255, 0.12);
+  --task-glass-border: rgba(255, 255, 255, 0.18);
+  --task-glass-solid: rgba(255, 255, 255, 0.92);
+  --task-text: rgba(255, 255, 255, 0.95);
+  --task-text-secondary: rgba(255, 255, 255, 0.75);
+  --task-text-light: #fff;
+  --task-text-muted: rgba(255, 255, 255, 0.55);
+  --task-text-dim: rgba(255, 255, 255, 0.45);
+  --task-success: #4cd964;
+  --task-gold: #fbbf24;
+  --task-surface: rgba(255, 255, 255, 0.15);
+  --task-surface-solid: rgba(255, 255, 255, 0.92);
+}
+
+.dream-page {
+  position: relative;
+  min-height: 100dvh;
+  isolation: isolate;
+  color: var(--task-text-light);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  font-family: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', -apple-system, sans-serif;
+}
+
+.dream-header {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 52px;
+  padding: 0 16px;
+  padding-top: env(safe-area-inset-top, 0px);
+  gap: 8px;
+}
+
+.dream-header h1 {
+  flex: 1;
+  text-align: center;
+  font-size: 17px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.02em;
+}
+
+.dream-hdr-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
+  flex-shrink: 0;
+}
+
+.dream-hdr-btn:active {
+  transform: scale(0.94);
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.dream-hdr-btn.pill {
+  width: auto;
+  padding: 0 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.dream-body {
+  position: relative;
+  z-index: 3;
+  flex: 1;
+  padding: 4px 16px 160px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+.dream-body.has-footer-btn {
+  padding-bottom: calc(148px + env(safe-area-inset-bottom, 0px));
+}
+
+/* 深色背景上的磨砂玻璃卡片 + 浅色文字 */
+.dream-card,
+.dream-page .glass-card {
+  margin-bottom: 12px;
+  padding: 16px;
+  border-radius: 22px;
+  background: var(--task-glass);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--task-glass-border);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.1);
+  color: var(--task-text);
+}
+
+.dream-card--solid {
+  background: var(--task-glass-solid);
+  border-color: rgba(255, 255, 255, 0.85);
+  color: #333366;
+}
+
+.dream-card--gradient {
+  background: linear-gradient(145deg, rgba(123, 97, 255, 0.88), rgba(90, 69, 214, 0.82));
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow: 0 8px 28px rgba(123, 97, 255, 0.28);
+  color: #fff;
+}
+
+.dream-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--task-text);
+}
+
+.dream-section-title::before {
+  content: '';
+  width: 4px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--task-primary);
+}
+
+.dream-card--gradient .dream-section-title {
+  color: #fff;
+}
+
+.dream-card--gradient .dream-section-title::before {
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.dream-footer {
+  position: fixed;
+  z-index: 20;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 430px;
+  bottom: 0;
+  padding: 12px 20px calc(16px + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(180deg, transparent, rgba(46, 42, 94, 0.55) 30%);
+}
+
+.dream-btn {
+  width: 100%;
+  padding: 16px;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--task-primary-light), var(--task-primary));
+  box-shadow: 0 8px 24px rgba(123, 97, 255, 0.4);
+  color: #fff;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.2s;
+}
+
+.dream-btn:active:not(:disabled) { transform: scale(0.98); }
+
+.dream-btn:disabled,
+.dream-btn.done {
+  background: linear-gradient(90deg, #c4b5fd, #a594ff);
+  box-shadow: none;
+  cursor: not-allowed;
+  opacity: 0.75;
+}
+
+/* 胶囊 Tab（任务记录筛选） */
+.dream-page .task-tab-row {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.dream-page .task-tab-btn {
+  flex: 1;
+  padding: 10px 4px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.dream-page .task-tab-btn:active { transform: scale(0.97); }
+
+.dream-page .task-tab-btn.active {
+  background: #fff;
+  color: var(--task-primary);
+  font-weight: 700;
+  box-shadow: 0 2px 10px rgba(123, 97, 255, 0.15);
+}
+
+/* 下划线 Tab（任务中心）— 胶囊容器 + 白底下划线 */
+.task-tab-row--underline {
+  gap: 0;
+  padding: 4px 6px 0;
+  margin-bottom: 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.task-tab-row--underline .task-tab-btn {
+  border-radius: 0;
+  padding: 10px 6px 12px;
+  color: rgba(255, 255, 255, 0.55);
+  border-bottom: 2.5px solid transparent;
+  margin-bottom: 0;
+  font-size: 13px;
+}
+
+.task-tab-row--underline .task-tab-btn.active {
+  background: transparent;
+  color: #fff;
+  font-weight: 700;
+  box-shadow: none;
+  border-bottom-color: #fff;
+}
+
+.task-progress-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  overflow: hidden;
+}
+
+.task-progress-bar--lg { height: 8px; }
+
+.task-progress-bar__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--task-primary-light), var(--task-primary));
+  transition: width 0.5s ease;
+}
+
+.task-progress-bar__fill.gold {
+  background: linear-gradient(90deg, #ffd700, #fbbf24);
+}
+
+.task-reward-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.task-reward-chip.exp { background: rgba(234, 88, 12, 0.2); color: #fdba74; }
+.task-reward-chip.coins { background: rgba(251, 191, 36, 0.2); color: #fde68a; }
+
+.task-skeleton {
+  border-radius: 24px;
+  background: linear-gradient(90deg, rgba(255,255,255,.25) 25%, rgba(255,255,255,.45) 50%, rgba(255,255,255,.25) 75%);
+  background-size: 200% 100%;
+  animation: task-sk 1.4s ease-in-out infinite;
+}
+
+@keyframes task-sk {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.task-empty-hint {
+  text-align: center;
+  padding: 40px 20px;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 14px;
+}
+
+.task-tab-row {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.task-tab-btn {
+  flex: 1;
+  padding: 10px 4px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.task-tab-btn.active {
+  background: #fff;
+  color: var(--task-primary);
+  font-weight: 700;
+}

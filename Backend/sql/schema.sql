@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS users (
   medals INT DEFAULT 0,
   total_medals INT DEFAULT 45,
   vip TINYINT(1) DEFAULT 0,
+  vip_expires_at DATETIME DEFAULT NULL,
   ambient_sound VARCHAR(20) DEFAULT 'rain',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
