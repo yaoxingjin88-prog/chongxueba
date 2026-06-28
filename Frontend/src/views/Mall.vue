@@ -4,6 +4,12 @@ import { useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
 import { api } from '../api'
 import { useToast } from '../composables/useToast'
+import {
+  mallCarousel1,
+  mallCarousel2,
+  mallCarousel3,
+  mallCarousel4,
+} from '../config/ossPublic.js'
 
 const router = useRouter()
 const user = useUserStore()
@@ -13,10 +19,10 @@ const cartBadge = ref(0)
 const searchText = ref('')
 
 const carouselSlides = [
-  '/商城轮播图1.png',
-  '/商城轮播图2.png',
-  '/商城轮播图3.png',
-  '/商城轮播图4.png',
+  mallCarousel1,
+  mallCarousel2,
+  mallCarousel3,
+  mallCarousel4,
 ]
 const activeSlide = ref(0)
 const isCarouselDragging = ref(false)

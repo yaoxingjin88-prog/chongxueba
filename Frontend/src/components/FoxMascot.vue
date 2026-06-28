@@ -1,5 +1,5 @@
 <script setup>
-import foxImg from '../assets/mascot/fox-mascot.png'
+import { mascotFox } from '../config/ossAssets.js'
 
 defineProps({
   height: { type: Number, default: 118 },
@@ -24,7 +24,7 @@ defineProps({
       <font-awesome-icon icon="star" />
     </div>
     <div class="fox-stage" :class="{ floating, circle: variant === 'circle' }">
-      <img class="fox-img" :src="foxImg" alt="" draggable="false" />
+      <img class="fox-img" :src="mascotFox" alt="" draggable="false" />
     </div>
   </div>
 </template>

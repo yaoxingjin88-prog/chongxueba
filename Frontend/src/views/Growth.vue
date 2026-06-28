@@ -4,10 +4,12 @@ import { useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
 import { api } from '../api'
 import GrowthShareSheet from '../components/GrowthShareSheet.vue'
-import stageEgg from '../assets/pet-stage-egg.png'
-import stageBaby from '../assets/pet-stage-baby.png'
-import stageGrowth from '../assets/home-fox-island.png'
-import stageMature from '../assets/pet-stage-mature.png'
+import {
+  homeFoxIsland,
+  petStageBaby,
+  petStageEgg,
+  petStageMature,
+} from '../config/ossAssets.js'
 
 const router = useRouter()
 const user = useUserStore()
@@ -47,7 +49,7 @@ const petStages = [
     name: '星愿蛋',
     shortName: '蛋',
     level: 'Lv.1',
-    image: stageEgg,
+    image: petStageEgg,
     description: '专注的每一分钟，都在唤醒蛋壳里的星光。',
   },
   {
@@ -55,7 +57,7 @@ const petStages = [
     name: '幼年小狐',
     shortName: '幼年',
     level: 'Lv.5',
-    image: stageBaby,
+    image: petStageBaby,
     description: '好奇心旺盛，会陪你完成最初的学习任务。',
   },
   {
@@ -63,7 +65,7 @@ const petStages = [
     name: '成长小狐',
     shortName: '成长',
     level: 'Lv.15',
-    image: stageGrowth,
+    image: homeFoxIsland,
     description: '已经掌握稳定的学习节奏，专注力持续成长。',
   },
   {
@@ -71,7 +73,7 @@ const petStages = [
     name: '学霸星狐',
     shortName: '成熟',
     level: 'Lv.30',
-    image: stageMature,
+    image: petStageMature,
     description: '完成长期目标后进化，解锁专属星光装扮。',
   },
 ]

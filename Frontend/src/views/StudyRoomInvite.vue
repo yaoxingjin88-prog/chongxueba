@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '../api'
 import { avatarUrl } from '../utils/avatar'
+import { inviteFriendsBg } from '../config/ossPublic.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -120,7 +121,7 @@ onMounted(loadPage)
 <template>
   <div class="invite-page page">
     <div class="invite-bg" aria-hidden="true">
-      <img src="/邀请好友.png" alt="" class="invite-bg-img">
+      <img :src="inviteFriendsBg" alt="" class="invite-bg-img">
     </div>
 
     <header class="invite-header">

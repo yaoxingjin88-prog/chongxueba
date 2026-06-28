@@ -3,7 +3,7 @@ import { ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '../api'
 import StudyRoomInfoPanel from './StudyRoomInfoPanel.vue'
-import menuBg from '../assets/study-room-menu-bg.png'
+import { studyRoomMenuBg } from '../config/ossAssets.js'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -170,7 +170,7 @@ function onInfoExit() {
 
           <template v-else-if="menuData">
             <div v-if="panelView === 'menu'" class="menu-stage">
-              <img :src="menuBg" alt="" class="menu-bg" aria-hidden="true">
+              <img :src="studyRoomMenuBg" alt="" class="menu-bg" aria-hidden="true">
 
               <header class="sheet-header menu-header">
                 <span class="header-spacer" />

@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { api } from '../api'
 import { avatarUrl } from '../utils/avatar'
 import { enrichEvolutionStages, getActiveStageImage } from '../utils/petStages.js'
+import { petRaisePageBg } from '../config/ossPublic.js'
 
 const router = useRouter()
 
@@ -58,7 +59,7 @@ onMounted(loadProfile)
 
 <template>
   <div class="profile-page page">
-    <img src="/宠物养成页面背景.png" alt="" class="page-bg">
+    <img :src="petRaisePageBg" alt="" class="page-bg">
 
     <header class="top-bar">
       <button type="button" class="icon-btn" aria-label="返回" @click="router.back()">

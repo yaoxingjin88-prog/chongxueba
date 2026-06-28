@@ -6,6 +6,9 @@ import { FontAwesomeIcon } from './plugins/fontawesome'
 import { useUserStore } from './stores/user'
 import './styles/global.css'
 import './styles/task-theme.css'
+import { mallSkyBg } from './config/ossPublic.js'
+
+document.documentElement.style.setProperty('--mall-sky-bg', `url("${mallSkyBg}")`)
 
 const app = createApp(App)
 const pinia = createPinia()

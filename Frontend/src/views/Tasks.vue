@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import DreamPageBg from '../components/DreamPageBg.vue'
-import trophyImg from '../assets/rewards/trophy.png'
+import { rewardTrophy } from '../config/ossAssets.js'
 import Reward3DIcon from '../components/Reward3DIcon.vue'
 import ChestTierIcon from '../components/ChestTierIcon.vue'
 import { api } from '../api'
@@ -140,7 +140,7 @@ onUnmounted(() => clearInterval(timer))
           <p>挑战自我 · 赢取丰厚奖励</p>
           <span class="countdown-pill">剩余时间：{{ countdownText }}</span>
         </div>
-        <img class="week-trophy-img" :src="trophyImg" alt="" draggable="false" />
+        <img class="week-trophy-img" :src="rewardTrophy" alt="" draggable="false" />
       </section>
 
       <section v-if="activeTab === 2 && eventCountdown" class="week-banner event-banner">

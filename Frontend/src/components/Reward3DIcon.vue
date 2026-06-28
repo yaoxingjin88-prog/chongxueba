@@ -1,7 +1,6 @@
 <script setup>
 import { computed } from 'vue'
-import trophyImg from '../assets/rewards/trophy.png'
-import chestTier4 from '../assets/rewards/chest-tier-4.png'
+import { rewardChestTier4, rewardTrophy } from '../config/ossAssets.js'
 
 const props = defineProps({
   variant: {
@@ -15,7 +14,7 @@ const props = defineProps({
   open: { type: Boolean, default: false },
 })
 
-const imgSrc = computed(() => (props.variant === 'chest' ? chestTier4 : trophyImg))
+const imgSrc = computed(() => (props.variant === 'chest' ? rewardChestTier4 : rewardTrophy))
 
 const boxStyle = computed(() => {
   const w = props.size

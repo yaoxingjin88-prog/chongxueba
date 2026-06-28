@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { api } from '../api'
 import { useToast } from '../composables/useToast'
 import { useStudyRoomJoin } from '../composables/useStudyRoomJoin'
+import { studyRoomCreateBg } from '../config/ossPublic.js'
 
 const router = useRouter()
 const toast = useToast()
@@ -171,6 +172,8 @@ async function handleCreate() {
 }
 
 onMounted(loadPage)
+
+const studyRoomCreateBgUrl = `url("${studyRoomCreateBg}")`
 </script>
 
 <template>
@@ -504,7 +507,7 @@ onMounted(loadPage)
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background: url('/创建自习室背景.png') center top / 100% auto no-repeat;
+  background: v-bind(studyRoomCreateBgUrl) center top / 100% auto no-repeat;
   background-color: #ebe4ff;
 }
 

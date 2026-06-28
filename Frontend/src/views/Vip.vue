@@ -4,10 +4,13 @@ import { useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
 import { api } from '../api'
 import { useToast } from '../composables/useToast'
+import { vipPayBg } from '../config/ossPublic.js'
 
 const router = useRouter()
 const user = useUserStore()
 const toast = useToast()
+
+const vipPayBgUrl = `url("${vipPayBg}")`
 
 const loading = ref(true)
 const subscribing = ref(false)
@@ -224,7 +227,7 @@ onMounted(loadVip)
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background: url('/支付背景.png') center top / cover no-repeat;
+  background: v-bind(vipPayBgUrl) center top / cover no-repeat;
   background-color: #e8dcf8;
 }
 

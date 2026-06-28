@@ -4,8 +4,9 @@ import { useRouter } from 'vue-router'
 import { api } from '../api'
 import { useToast } from '../composables/useToast'
 import { getActiveStageImage } from '../utils/petStages.js'
-import homeFoxIsland from '../assets/home-fox-island.png'
+import { homeFoxIsland } from '../config/ossAssets.js'
 import { resolveDressUpVisual } from '../utils/petDressUpVisuals.js'
+import { petRaisePageBg } from '../config/ossPublic.js'
 
 const router = useRouter()
 const toast = useToast()
@@ -114,7 +115,7 @@ onMounted(loadItems)
 
 <template>
   <div class="dressup-page page">
-    <img src="/宠物养成页面背景.png" alt="" class="page-bg">
+    <img :src="petRaisePageBg" alt="" class="page-bg">
 
     <header class="top-bar">
       <button type="button" class="icon-btn" aria-label="返回" @click="router.back()">

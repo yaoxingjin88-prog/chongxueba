@@ -8,6 +8,7 @@ import { useFocusAnalyzer } from '../composables/useFocusAnalyzer.js'
 import StudyRoomMenuSheet from '../components/StudyRoomMenuSheet.vue'
 import VideoFocusOverlay from '../components/VideoFocusOverlay.vue'
 import FocusSessionReport from '../components/FocusSessionReport.vue'
+import { studyRoomBottomBg } from '../config/ossPublic.js'
 
 const router = useRouter()
 
@@ -336,6 +337,8 @@ function showMoreClassmates() {
   router.push('/study-room/video/members')
 }
 
+const studyRoomBottomBgUrl = `url("${studyRoomBottomBg}")`
+
 onMounted(async () => {
   await loadRoom()
   if (room.value?.self.focusSessionId) {
@@ -567,7 +570,7 @@ onBeforeUnmount(() => {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: url('/自习室底部背景.png') center bottom / cover no-repeat;
+  background: v-bind(studyRoomBottomBgUrl) center bottom / cover no-repeat;
 }
 
 .top-hero {

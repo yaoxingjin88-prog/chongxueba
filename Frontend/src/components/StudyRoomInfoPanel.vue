@@ -3,7 +3,7 @@ import { ref, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '../api'
 import { avatarUrl } from '../utils/avatar'
-import bannerFox from '../assets/home-fox-island.png'
+import { homeFoxIsland } from '../config/ossAssets.js'
 
 const props = defineProps({
   mode: { type: String, default: 'voice' },
@@ -87,7 +87,7 @@ function exitRoom() {
       <div v-if="activeTab === 'info'" class="info-scroll">
         <section class="room-banner">
           <div class="banner-stars" aria-hidden="true">✦</div>
-          <img :src="bannerFox" alt="" class="banner-fox" aria-hidden="true">
+          <img :src="homeFoxIsland" alt="" class="banner-fox" aria-hidden="true">
           <div class="banner-text">
             <h3>{{ info.name }}</h3>
             <p>{{ info.slogan }}</p>

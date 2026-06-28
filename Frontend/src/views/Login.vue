@@ -3,7 +3,8 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '../api'
 import { useUserStore } from '../stores/user'
-import loginSkyFox from '../assets/login-sky-fox.png'
+import { loginSkyFox } from '../config/ossAssets.js'
+import { brandLogo } from '../config/ossPublic.js'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -200,7 +201,7 @@ onBeforeUnmount(() => {
 
     <section class="brand" aria-label="宠学霸">
       <div class="brand-mark">
-        <img src="/1d733579115cf42e9a1e9e4121511cb1.png" alt="宠学霸" class="brand-logo">
+        <img :src="brandLogo" alt="宠学霸" class="brand-logo">
       </div>
       <div>
         <h1>宠学霸</h1>

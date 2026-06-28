@@ -107,7 +107,7 @@ button {
   pointer-events: none;
   overflow: hidden;
   z-index: 0;
-  background: url('/images/mall-sky-bg.png') center top / cover no-repeat;
+  background: var(--mall-sky-bg) center top / cover no-repeat;
   background-color: #1a0a3e;
 }
 

@@ -6,8 +6,7 @@ import { api } from '../api'
 import { avatarUrl } from '../utils/avatar'
 import { speakPet, stopPetSpeech } from '../utils/petSpeech'
 import { resolveEquippedDressUpItems } from '../utils/petDressUpVisuals.js'
-import homeFoxIsland from '../assets/home-fox-island.png'
-import homeSkyBackground from '../assets/home-sky-background.png'
+import { homeFoxIsland, homeSkyBackground } from '../config/ossAssets.js'
 
 const router = useRouter()
 const user = useUserStore()

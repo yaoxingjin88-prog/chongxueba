@@ -6,6 +6,7 @@ import { avatarUrl } from '../utils/avatar'
 import { enrichEvolutionStages, getActiveStageImage } from '../utils/petStages.js'
 import { api } from '../api'
 import PetShareSheet from '../components/PetShareSheet.vue'
+import { petRaisePageBg } from '../config/ossPublic.js'
 
 const router = useRouter()
 const user = useUserStore()
@@ -121,7 +122,7 @@ onActivated(loadPet)
 
 <template>
   <div class="pet-page page">
-    <img src="/宠物养成页面背景.png" alt="" class="page-bg">
+    <img :src="petRaisePageBg" alt="" class="page-bg">
 
     <header class="top-bar">
       <button type="button" class="icon-btn" aria-label="返回" @click="router.back()">

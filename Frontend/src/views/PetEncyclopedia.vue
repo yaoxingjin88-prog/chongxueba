@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { api } from '../api'
 import { PET_STAGE_IMAGES } from '../utils/petStages.js'
+import { petRaisePageBg } from '../config/ossPublic.js'
 
 const router = useRouter()
 const route = useRoute()
@@ -67,7 +68,7 @@ onMounted(async () => {
 
 <template>
   <div class="wiki-page page">
-    <img src="/宠物养成页面背景.png" alt="" class="page-bg">
+    <img :src="petRaisePageBg" alt="" class="page-bg">
 
     <header class="top-bar">
       <button type="button" class="icon-btn" aria-label="返回" @click="router.back()">

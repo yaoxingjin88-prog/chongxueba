@@ -4,6 +4,12 @@ import { useRouter } from 'vue-router'
 import { FontAwesomeIcon } from '../plugins/fontawesome'
 import { api } from '../api'
 import { useStudyRoomJoin } from '../composables/useStudyRoomJoin'
+import {
+  studyRoomCarousel1,
+  studyRoomCarousel2,
+  studyRoomCarousel3,
+  studyRoomCarousel4,
+} from '../config/ossPublic.js'
 
 const router = useRouter()
 const {
@@ -20,10 +26,10 @@ const categories = ref([])
 const filters = ref([])
 const rooms = ref([])
 const carouselSlides = [
-  '/自习室轮播图1.png',
-  '/自习室轮播图2.png',
-  '/自习室轮播图3.png',
-  '/自习室轮播图4.png',
+  studyRoomCarousel1,
+  studyRoomCarousel2,
+  studyRoomCarousel3,
+  studyRoomCarousel4,
 ]
 const activeSlide = ref(0)
 const isCarouselDragging = ref(false)

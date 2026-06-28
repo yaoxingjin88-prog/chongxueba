@@ -6,6 +6,7 @@ import { useUserStore } from '../stores/user'
 import { api } from '../api'
 import { useAmbientSound } from '../composables/useAmbientSound'
 import { AMBIENT_SOUNDS, getAmbientLabel, DEFAULT_AMBIENT_KEY } from '../config/ambientSounds'
+import { focusStartBg } from '../config/ossPublic.js'
 
 const user = useUserStore()
 const router = useRouter()
@@ -333,7 +334,7 @@ onUnmounted(() => {
 <template>
   <div class="focus-page">
     <div class="focus-bg" aria-hidden="true">
-      <img src="/开始专注.png" alt="" class="focus-bg-img">
+      <img :src="focusStartBg" alt="" class="focus-bg-img">
     </div>
 
     <!-- 顶栏 -->

@@ -3,7 +3,8 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '../api'
 import { avatarUrl } from '../utils/avatar'
-import homeFoxIsland from '../assets/home-fox-island.png'
+import { homeFoxIsland } from '../config/ossAssets.js'
+import { leaderboardHomeBg } from '../config/ossPublic.js'
 
 const router = useRouter()
 
@@ -74,7 +75,7 @@ onMounted(loadLeaderboard)
 <template>
   <div class="leaderboard page">
     <div class="page-bg" aria-hidden="true">
-      <img src="/首页.png" alt="" class="page-bg-img">
+      <img :src="leaderboardHomeBg" alt="" class="page-bg-img">
       <div class="page-bg-mask" />
     </div>
 

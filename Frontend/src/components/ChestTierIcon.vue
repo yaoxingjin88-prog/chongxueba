@@ -1,15 +1,17 @@
 <script setup>
 import { computed } from 'vue'
-import chestTier1 from '../assets/rewards/chest-tier-1.png'
-import chestTier2 from '../assets/rewards/chest-tier-2.png'
-import chestTier3 from '../assets/rewards/chest-tier-3.png'
-import chestTier4 from '../assets/rewards/chest-tier-4.png'
+import {
+  rewardChestTier1,
+  rewardChestTier2,
+  rewardChestTier3,
+  rewardChestTier4,
+} from '../config/ossAssets.js'
 
 const TIER_IMAGES = {
-  1: chestTier1,
-  2: chestTier2,
-  3: chestTier3,
-  4: chestTier4,
+  1: rewardChestTier1,
+  2: rewardChestTier2,
+  3: rewardChestTier3,
+  4: rewardChestTier4,
 }
 
 const props = defineProps({

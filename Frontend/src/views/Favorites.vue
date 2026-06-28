@@ -2,8 +2,9 @@
 import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '../api'
+import { favoritesFoxBanner } from '../config/ossPublic.js'
 
-const favoritesBanner = '/我的收藏狐狸.png'
+const favoritesBanner = favoritesFoxBanner
 
 const router = useRouter()
 

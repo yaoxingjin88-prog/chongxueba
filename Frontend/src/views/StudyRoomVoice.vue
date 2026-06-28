@@ -3,8 +3,9 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '../api'
 import { avatarUrl } from '../utils/avatar'
-import studyRoomLyingIp from '../assets/study-room-lying-ip.png'
+import { studyRoomLyingIp } from '../config/ossAssets.js'
 import StudyRoomMenuSheet from '../components/StudyRoomMenuSheet.vue'
+import { studyRoomBottomBg } from '../config/ossPublic.js'
 
 const router = useRouter()
 
@@ -125,6 +126,8 @@ async function exitRoom() {
 function inviteFriends() {
   router.push({ path: '/study-room/invite', query: { mode: 'voice' } })
 }
+
+const studyRoomBottomBgUrl = `url("${studyRoomBottomBg}")`
 
 onMounted(async () => {
   await loadRoom()
@@ -334,7 +337,7 @@ onBeforeUnmount(() => {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: url('/自习室底部背景.png') center bottom / cover no-repeat;
+  background: v-bind(studyRoomBottomBgUrl) center bottom / cover no-repeat;
 }
 
 .voice-header {
