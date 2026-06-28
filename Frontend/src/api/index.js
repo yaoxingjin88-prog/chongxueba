@@ -1,8 +1,8 @@
-const BASE = '/api'
+import { API_BASE } from '../config/apiBase.js'
 
 async function request(url, options = {}) {
   const token = localStorage.getItem('chong-xueba-token') || sessionStorage.getItem('chong-xueba-token')
-  const res = await fetch(`${BASE}${url}`, {
+  const res = await fetch(`${API_BASE}${url}`, {
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),

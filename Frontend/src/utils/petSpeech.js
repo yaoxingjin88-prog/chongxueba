@@ -1,4 +1,6 @@
-const API_BASE = '/api/tts/pet'
+import { API_BASE } from '../config/apiBase.js'
+
+const TTS_BASE = `${API_BASE}/tts/pet`
 const VOICE_STORAGE_KEY = 'chong-xueba-pet-voice'
 
 let currentAudio = null
@@ -56,7 +58,7 @@ async function speakPetLocal(text) {
 
 async function speakPetViaApi(text, voiceId) {
   const voice = voiceId || getStoredPetVoice()
-  const res = await fetch(API_BASE, {
+  const res = await fetch(TTS_BASE, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -152,7 +154,7 @@ export function isPetSpeechSupported() {
 
 export async function getPetVoiceLabel() {
   try {
-    const res = await fetch('/api/tts/pet/config')
+    const res = await fetch(`${TTS_BASE}/config`)
     const json = await res.json()
     const voices = json.data?.voices || []
     const current = json.data?.voice || getStoredPetVoice()
@@ -166,7 +168,7 @@ export async function getPetVoiceLabel() {
 
 export async function loadPetVoiceOptions() {
   try {
-    const res = await fetch('/api/tts/pet/config')
+    const res = await fetch(`${TTS_BASE}/config`)
     const json = await res.json()
     if (json.data?.voice) {
       cachedVoiceId = json.data.voice
